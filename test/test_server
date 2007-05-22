@@ -1,0 +1,81 @@
+#!/usr/bin/env ruby -wKU
+
+$LOAD_PATH << File.join(File.dirname(__FILE__), *%w[.. lib])
+require "plugin"
+
+require "set"
+require "webrick"
+require "pp"
+
+clients = Set.new
+plugins = { "Plugin::Uptime"       =>
+            Plugin::Info.new("Plugin::Uptime", "1.0.0", <<-'END_UPTIME'),
+            class Plugin
+              class Uptime < Plugin
+                def run
+                  if `uptime` =~ /up +([^,]+)/
+                    {:as_of  => Time.now, :uptime => $1}
+                  else
+                    raise "Unexpected output format"  
+                  end
+                rescue
+                  {:error => "Couldn't use `uptime` as expected."}
+                end
+              end
+            end
+            END_UPTIME
+            "Plugin::LoadAverages" =>
+            Plugin::Info.new("Plugin::LoadAverages", "1.0.0", <<-'END_LOAD') }
+            class Plugin
+              class LoadAverages < Plugin
+                def run
+                  if `uptime` =~ /load averages: ([\d.]+) ([\d.]+) ([\d.]+)\Z/
+                    { :as_of                => Time.now, 
+                      :last_minute          => $1,
+                      :last_five_minutes    => $2,
+                      :last_fifteen_minutes => $3 }
+                  else
+                    raise "Unexpected output format"  
+                  end
+                rescue
+                  {:error => "Couldn't use `uptime` as expected."}
+                end
+              end
+            end
+            END_LOAD
+server  = WEBrick::HTTPServer.new(:Port => 8006)
+
+server.mount_proc("/clients/create") do |req, res|
+  uuid = req.query["client_uuid"]
+  if req.query["user_token"].nil? or uuid.nil? or clients.include? uuid
+    res.status = 400
+  else
+    clients << uuid
+    res.status = 204
+  end
+end
+
+server.mount_proc("/clients/plan") do |req, res|
+  if clients.include? req.query["client_uuid"]
+    res["content-type"] = "application/x-sspy"
+    res.body            = Marshal.dump( [
+      {:interval => 5,  :plugin => plugins["Plugin::Uptime"]},
+      {:interval => 10, :plugin => plugins["Plugin::LoadAverages"]}
+    ] )
+  else
+    res.status = 400
+  end
+end
+
+server.mount_proc("/reports/create") do |req, res|
+  if clients.include? req.query["client_uuid"]
+    puts "Message received:"
+    pp req.query
+    res.status = 204
+  else
+    res.status = 400
+  end
+end
+
+trap("INT") { server.shutdown }
+server.start

@@ -1,0 +1,70 @@
+#!/usr/bin/env ruby -wKU
+
+SERVER = "http://localhost:8006"
+URLS   = { :create => "#{SERVER}/clients/create",
+           :plan   => "#{SERVER}/clients/plan",
+           :report => "#{SERVER}/reports/create" }
+
+$LOAD_PATH << File.join(File.dirname(__FILE__), *%w[.. lib])
+require "plugin"
+
+require "net/http"
+require "uri"
+require "yaml"
+
+def post(url_name, error, params)
+  response = Net::HTTP.post_form(URI.parse(URLS[url_name]), params)
+  case response
+  when Net::HTTPSuccess
+    yield response if block_given?
+  else
+    abort error
+  end
+end
+
+def report(params)
+  post( :report, "Unable to report to server.",
+        Hash[*params.map { |k, v| ["report[#{k}]", v] }.flatten].
+        merge(:client_uuid => $client_data["uuid"]) )
+end
+
+user_token = nil
+if ARGV.first == "-u"
+  ARGV.shift
+  user_token = ARGV.shift
+end
+data_file = ARGV.shift || "client_data.yaml"
+
+unless File.exist? data_file
+  uuid = `uuidgen`
+  post( :create, "Unable to handshake with server.",
+        :user_token => user_token, :client_uuid => uuid ) do |res|
+    File.open(data_file, "w") do |file|
+      YAML.dump({"uuid" => uuid, "last_runs" => Hash.new}, file)
+    end
+  end
+end
+$client_data = File.open(data_file) { |file| YAML.load(file) }
+
+post( :plan, "Could not retrieve plan from server.",
+      :client_uuid => $client_data["uuid"] ) do |res|
+  begin
+    Marshal.load(res.body).each do |plan|
+      if (last_run = $client_data["last_runs"][plan[:plugin].name]).nil? or
+         Time.now > last_run + plan[:interval]
+        eval(plan[:plugin].code)
+        if plugin = Plugin.last_defined.load
+          report( plugin.run.merge( :plugin_name    => plan[:plugin].name,
+                                    :plugin_version => plan[:plugin].version ) )
+          $client_data["last_runs"][plan[:plugin].name] = Time.now
+        else
+          report(:error => "Plugin would not load.")
+        end
+      end
+    end
+  rescue
+    report(:error => "Exception:  #{$!.message}.")
+  end
+end
+
+File.open(data_file, "w") { |file| YAML.dump($client_data, file) }
