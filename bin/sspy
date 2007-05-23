@@ -20,9 +20,19 @@ require "net/http"
 require "uri"
 require "yaml"
 
+def collapse_params(params, prefix = nil)
+  params.inject(Hash.new) do |all, (key, value)|
+    if value.is_a? Hash
+      all.merge(to_params(value, prefix ? "#{prefix}[#{key}]" : String(key)))
+    else
+      all.merge((prefix ? "#{prefix}[#{key}]" : String(key)) => String(value))
+    end
+  end
+end
+
 def post(url_name, error, params = {})
   url = url_name.is_a?(String) ? url_name : URLS[url_name]
-  response = Net::HTTP.post_form(URI.parse(url), params)
+  response = Net::HTTP.post_form(URI.parse(url), collapse_params(params))
   case response
   when Net::HTTPSuccess
     yield response if block_given?
