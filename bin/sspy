@@ -24,7 +24,7 @@ def collapse_params(params, prefix = nil)
   params.inject(Hash.new) do |all, (key, value)|
     if value.is_a? Hash
       all.merge(
-        collapse_params_params( value,
+        collapse_params( value,
                                 prefix ? "#{prefix}[#{key}]" : String(key) )
       )
     else
