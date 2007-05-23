@@ -23,7 +23,10 @@ require "yaml"
 def collapse_params(params, prefix = nil)
   params.inject(Hash.new) do |all, (key, value)|
     if value.is_a? Hash
-      all.merge(to_params(value, prefix ? "#{prefix}[#{key}]" : String(key)))
+      all.merge(
+        collapse_params_params( value,
+                                prefix ? "#{prefix}[#{key}]" : String(key) )
+      )
     else
       all.merge((prefix ? "#{prefix}[#{key}]" : String(key)) => String(value))
     end
