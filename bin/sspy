@@ -1,9 +1,17 @@
 #!/usr/bin/env ruby -wKU
 
-SERVER = "http://localhost:8006"
-URLS   = { :create => "#{SERVER}/clients/create",
-           :plan   => "#{SERVER}/clients/plan",
-           :report => "#{SERVER}/reports/create" }
+SERVER = "http://localhost:3000"
+
+# TODO - ensure that a uuid is provided
+uuid = nil
+if ARGV.first == "-u"
+  ARGV.shift
+  uuid = ARGV.shift
+end
+
+URLS   = { :create => "#{SERVER}/clients/#{uuid}/register",
+           :plan   => "#{SERVER}/clients/#{uuid}/plugins.spy",
+           :report => "#{SERVER}/plugins/#{uuid}/reports.spy" }
 
 $LOAD_PATH << File.join(File.dirname(__FILE__), *%w[.. lib])
 require "plugin"
@@ -12,8 +20,9 @@ require "net/http"
 require "uri"
 require "yaml"
 
-def post(url_name, error, params)
-  response = Net::HTTP.post_form(URI.parse(URLS[url_name]), params)
+def post(url_name, error, params = {})
+  url = url_name.is_a?(String) ? url_name : URLS[url_name]
+  response = Net::HTTP.post_form(URI.parse(url), params)
   case response
   when Net::HTTPSuccess
     yield response if block_given?
@@ -22,23 +31,35 @@ def post(url_name, error, params)
   end
 end
 
-def report(params)
-  post( :report, "Unable to report to server.",
-        Hash[*params.map { |k, v| ["report[#{k}]", v] }.flatten].
+def get(url_name, error, params = {})
+  url = url_name.is_a?(String) ? url_name : URLS[url_name]
+  response = Net::HTTP.get_response(URI.parse(url))
+  case response
+  when Net::HTTPSuccess
+    yield response if block_given?
+  else
+    abort error
+  end
+end
+
+def report(run_data, plugin_id)
+  params = {:report => {:data => run_data, :plugin_id => plugin_id} }.
+  merge(:client_uuid => $client_data["uuid"])
+  post( "#{SERVER}/plugins/#{plugin_id}/reports.spy", "Unable to report to server.",
+        params )
+end
+
+def error(message, plugin_id)
+  post( "#{SERVER}/plugins/#{plugin_id}/errors.spy", "Unable to log error on server.",
+        {:error => {:message => message, :plugin_id => plugin_id} }.
         merge(:client_uuid => $client_data["uuid"]) )
 end
 
-user_token = nil
-if ARGV.first == "-u"
-  ARGV.shift
-  user_token = ARGV.shift
-end
 data_file = ARGV.shift || "client_data.yaml"
 
 unless File.exist? data_file
-  uuid = `uuidgen`
   post( :create, "Unable to handshake with server.",
-        :user_token => user_token, :client_uuid => uuid ) do |res|
+        :id => uuid ) do |res|
     File.open(data_file, "w") do |file|
       YAML.dump({"uuid" => uuid, "last_runs" => Hash.new}, file)
     end
@@ -46,24 +67,23 @@ unless File.exist? data_file
 end
 $client_data = File.open(data_file) { |file| YAML.load(file) }
 
-post( :plan, "Could not retrieve plan from server.",
-      :client_uuid => $client_data["uuid"] ) do |res|
+get( :plan, "Could not retrieve plan from server." ) do |res|
   begin
     Marshal.load(res.body).each do |plan|
-      if (last_run = $client_data["last_runs"][plan[:plugin].name]).nil? or
+      @plan = plan
+      if (last_run = $client_data["last_runs"][plan[:name]]).nil? or
          Time.now > last_run + plan[:interval]
-        eval(plan[:plugin].code)
+        eval(plan[:code])
         if plugin = Plugin.last_defined.load
-          report( plugin.run.merge( :plugin_name    => plan[:plugin].name,
-                                    :plugin_version => plan[:plugin].version ) )
-          $client_data["last_runs"][plan[:plugin].name] = Time.now
+          report( plugin.run, plan[:plugin_id] )
+          $client_data["last_runs"][plan[:name]] = Time.now
         else
-          report(:error => "Plugin would not load.")
+          error("Plugin would not load.", plan[:plugin_id])
         end
       end
     end
   rescue
-    report(:error => "Exception:  #{$!.message}.")
+    error("Exception:  #{$!.message}.", @plan[:plugin_id])
   end
 end
 
