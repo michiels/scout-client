@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby -wKU
 
-SERVER = "http://localhost:3000"
+SERVER = "http://localhost:8000"
 
 # TODO - ensure that a uuid is provided
 uuid = nil
@@ -9,7 +9,7 @@ if ARGV.first == "-u"
   uuid = ARGV.shift
 end
 
-URLS   = { :create => "#{SERVER}/clients/#{uuid}/register",
+URLS   = { :create => "#{SERVER}/clients/#{uuid};register",
            :plan   => "#{SERVER}/clients/#{uuid}/plugins.spy",
            :report => "#{SERVER}/plugins/#{uuid}/reports.spy" }
 
