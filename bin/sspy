@@ -1,31 +1,47 @@
 #!/usr/bin/env ruby -wKU
 
-SERVER = "http://localhost:8000"
+SERVER = "http://localhost:3000"
 
-# TODO - ensure that a uuid is provided
-uuid = nil
-if ARGV.first == "-u"
-  ARGV.shift
-  uuid = ARGV.shift
-end
-
-URLS   = { :create => "#{SERVER}/clients/#{uuid};register",
-           :plan   => "#{SERVER}/clients/#{uuid}/plugins.spy",
-           :report => "#{SERVER}/plugins/#{uuid}/reports.spy" }
-
-$LOAD_PATH << File.join(File.dirname(__FILE__), *%w[.. lib])
-require "plugin"
+URLS   = { :plan   => "#{SERVER}/clients/UUID/plugins.spy",
+           :report => "#{SERVER}/plugins/PLUGIN_ID/reports.spy",
+           :error  => "#{SERVER}/plugins/PLUGIN_ID/errors.spy" }
 
 require "net/http"
 require "uri"
 require "yaml"
 
+class Plugin
+  class << self
+    def last_defined
+      @last_loaded
+    end
+    
+    def inherited(new_plugin)
+      @last_loaded = new_plugin
+    end
+    
+    def load(options = Hash.new)
+      new(options)
+    end
+  end
+  
+  def initialize(options = Hash.new)
+    @options = options
+  end
+end
+
+def urlify(url_name, options = Hash.new)
+  return url_name if url_name.is_a? String
+  URLS[url_name].
+    gsub(/\bUUID\b/, $uuid).
+    gsub(/\b[A-Z_]+\b/) { |key| options[key.downcase.to_sym] || key }
+end
+
 def collapse_params(params, prefix = nil)
   params.inject(Hash.new) do |all, (key, value)|
     if value.is_a? Hash
       all.merge(
-        collapse_params( value,
-                                prefix ? "#{prefix}[#{key}]" : String(key) )
+        collapse_params(value, prefix ? "#{prefix}[#{key}]" : String(key))
       )
     else
       all.merge((prefix ? "#{prefix}[#{key}]" : String(key)) => String(value))
@@ -34,8 +50,8 @@ def collapse_params(params, prefix = nil)
 end
 
 def post(url_name, error, params = {})
-  url = url_name.is_a?(String) ? url_name : URLS[url_name]
-  response = Net::HTTP.post_form(URI.parse(url), collapse_params(params))
+  response = Net::HTTP.post_form( URI.parse(urlify(url_name)),
+                                  collapse_params(params) )
   case response
   when Net::HTTPSuccess
     yield response if block_given?
@@ -45,8 +61,7 @@ def post(url_name, error, params = {})
 end
 
 def get(url_name, error, params = {})
-  url = url_name.is_a?(String) ? url_name : URLS[url_name]
-  response = Net::HTTP.get_response(URI.parse(url))
+  response = Net::HTTP.get_response(URI.parse(urlify(url_name)))
   case response
   when Net::HTTPSuccess
     yield response if block_given?
@@ -56,40 +71,43 @@ def get(url_name, error, params = {})
 end
 
 def report(run_data, plugin_id)
-  params = {:report => {:data => run_data, :plugin_id => plugin_id} }.
-  merge(:client_uuid => $client_data["uuid"])
-  post( "#{SERVER}/plugins/#{plugin_id}/reports.spy", "Unable to report to server.",
+  params = {:report => {:data => run_data, :plugin_id => plugin_id} }
+  post( urlify(:report, :plugin_id => plugin_id),
+        "Unable to report to server.",
         params )
 end
 
 def error(message, plugin_id)
-  post( "#{SERVER}/plugins/#{plugin_id}/errors.spy", "Unable to log error on server.",
-        {:error => {:message => message, :plugin_id => plugin_id} }.
-        merge(:client_uuid => $client_data["uuid"]) )
+  post( urlify(:error, :plugin_id => plugin_id),
+        "Unable to log error on server.",
+        {:error => {:message => message, :plugin_id => plugin_id}} )
 end
 
+if ARGV.first == "-u"
+  ARGV.shift
+  $uuid = ARGV.shift
+else
+  abort "Usage:  #{$PROGRAM_NAME} -u UUID [CLIENT_DATA_FILE]"
+end
 data_file = ARGV.shift || "client_data.yaml"
 
 unless File.exist? data_file
-  post( :create, "Unable to handshake with server.",
-        :id => uuid ) do |res|
-    File.open(data_file, "w") do |file|
-      YAML.dump({"uuid" => uuid, "last_runs" => Hash.new}, file)
-    end
+  File.open(data_file, "w") do |file|
+    YAML.dump({"last_runs" => Hash.new}, file)
   end
 end
-$client_data = File.open(data_file) { |file| YAML.load(file) }
+client_data = File.open(data_file) { |file| YAML.load(file) }
 
-get( :plan, "Could not retrieve plan from server." ) do |res|
+get(:plan, "Could not retrieve plan from server.") do |res|
   begin
     Marshal.load(res.body).each do |plan|
       @plan = plan
-      if (last_run = $client_data["last_runs"][plan[:name]]).nil? or
+      if (last_run = client_data["last_runs"][plan[:name]]).nil? or
          Time.now > last_run + plan[:interval]
         eval(plan[:code])
-        if plugin = Plugin.last_defined.load
-          report( plugin.run, plan[:plugin_id] )
-          $client_data["last_runs"][plan[:name]] = Time.now
+        if plugin = Plugin.last_defined.load(plan[:options] || Hash.new)
+          report(plugin.run, plan[:plugin_id])
+          client_data["last_runs"][plan[:name]] = Time.now
         else
           error("Plugin would not load.", plan[:plugin_id])
         end
@@ -100,4 +118,4 @@ get( :plan, "Could not retrieve plan from server." ) do |res|
   end
 end
 
-File.open(data_file, "w") { |file| YAML.dump($client_data, file) }
+File.open(data_file, "w") { |file| YAML.dump(client_data, file) }
