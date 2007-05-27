@@ -1,10 +1,10 @@
 #!/usr/bin/env ruby -wKU
 
-SERVER = "http://localhost:3000"
+SERVER = "http://localhost:8000"
 
 URLS   = { :plan   => "#{SERVER}/clients/UUID/plugins.spy",
-           :report => "#{SERVER}/plugins/PLUGIN_ID/reports.spy",
-           :error  => "#{SERVER}/plugins/PLUGIN_ID/errors.spy" }
+           :report => "#{SERVER}/clients/UUID/plugins/PLUGIN_ID/reports.spy",
+           :error  => "#{SERVER}/clients/UUID/plugins/PLUGIN_ID/errors.spy" }
 
 require "net/http"
 require "uri"
@@ -70,17 +70,26 @@ def get(url_name, error, params = {})
   end
 end
 
-def report(run_data, plugin_id)
-  params = {:report => {:data => run_data, :plugin_id => plugin_id} }
+def report(data, plugin_id)
+  params = {:report => {:data => data, :plugin_id => plugin_id} }
   post( urlify(:report, :plugin_id => plugin_id),
         "Unable to report to server.",
         params )
 end
 
-def error(message, plugin_id)
+def alert(data, plugin_id)
+  params = {:alert => {:subject => data[:subject], :body => data[:body], :plugin_id => plugin_id} }
+  post( urlify(:alert, :plugin_id => plugin_id),
+        "Unable to report to server.",
+        params )
+end
+
+def error(data, plugin_id)
+  p data
+  p plugin_id
   post( urlify(:error, :plugin_id => plugin_id),
         "Unable to log error on server.",
-        {:error => {:message => message, :plugin_id => plugin_id}} )
+        {:error => {:subject => data[:subject], :body => data[:body], :plugin_id => plugin_id}} )
 end
 
 if ARGV.first == "-u"
@@ -106,10 +115,15 @@ get(:plan, "Could not retrieve plan from server.") do |res|
          Time.now > last_run + plan[:interval]
         eval(plan[:code])
         if plugin = Plugin.last_defined.load(plan[:options] || Hash.new)
-          report(plugin.run, plan[:plugin_id])
+          data = plugin.run
+          report(data[:report], plan[:plugin_id]) if data[:report]
+          if data[:alerts] and data[:alerts].any?
+            data[:alerts].each { |a| alert(a, plan[:plugin_id]) }
+          end
+          error(data[:error], plan[:plugin_id]) if data[:error]
           client_data["last_runs"][plan[:name]] = Time.now
         else
-          error("Plugin would not load.", plan[:plugin_id])
+          error({:subject => "Plugin would not load."}, plan[:plugin_id])
         end
       end
     end
