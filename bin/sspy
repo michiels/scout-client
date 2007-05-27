@@ -4,7 +4,8 @@ SERVER = "http://localhost:8000"
 
 URLS   = { :plan   => "#{SERVER}/clients/UUID/plugins.spy",
            :report => "#{SERVER}/clients/UUID/plugins/PLUGIN_ID/reports.spy",
-           :error  => "#{SERVER}/clients/UUID/plugins/PLUGIN_ID/errors.spy" }
+           :error  => "#{SERVER}/clients/UUID/plugins/PLUGIN_ID/errors.spy",
+           :alert  => "#{SERVER}/clients/UUID/plugins/PLUGIN_ID/alerts.spy"}
 
 require "net/http"
 require "uri"
@@ -80,13 +81,11 @@ end
 def alert(data, plugin_id)
   params = {:alert => {:subject => data[:subject], :body => data[:body], :plugin_id => plugin_id} }
   post( urlify(:alert, :plugin_id => plugin_id),
-        "Unable to report to server.",
+        "Unable to send alert to server.",
         params )
 end
 
 def error(data, plugin_id)
-  p data
-  p plugin_id
   post( urlify(:error, :plugin_id => plugin_id),
         "Unable to log error on server.",
         {:error => {:subject => data[:subject], :body => data[:body], :plugin_id => plugin_id}} )
@@ -128,7 +127,7 @@ get(:plan, "Could not retrieve plan from server.") do |res|
       end
     end
   rescue
-    error("Exception:  #{$!.message}.", @plan[:plugin_id])
+    error({:subject => "Exception:  #{$!.message}.",:body => $!.backtrace}, @plan[:plugin_id])
   end
 end
 
