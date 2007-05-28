@@ -1,6 +1,45 @@
 #!/usr/bin/env ruby -wKU
 
-DEFAULT_SERVER = "http://localhost:8000"
+DEFAULT_SERVER = "localhost:8000"
+
+# set the server url
+if ARGV.first == "-s"
+  ARGV.shift
+  $server = ARGV.shift
+else
+  $server = DEFAULT_SERVER
+end
+
+URLS   = { :plan   => "/clients/CLIENT_ID/plugins.spy",
+           :report => "/clients/CLIENT_ID/plugins/PLUGIN_ID/reports.spy",
+           :error  => "/clients/CLIENT_ID/plugins/PLUGIN_ID/errors.spy",
+           :alert  => "/clients/CLIENT_ID/plugins/PLUGIN_ID/alerts.spy"}
+
+# set the user
+if ARGV.first == "-u"
+ ARGV.shift
+ $user = ARGV.shift
+else
+ abort "Usage:  #{$PROGRAM_NAME} -u UUID [CLIENT_DATA_FILE]"
+end
+
+# set the password
+if ARGV.first == "-p"
+ ARGV.shift
+ $password = ARGV.shift
+else
+ abort "Usage:  #{$PROGRAM_NAME} -u UUID [CLIENT_DATA_FILE]"
+end
+
+# set the client id
+if ARGV.first == "-c"
+  ARGV.shift
+  $clientid = ARGV.shift
+else
+  abort "Usage:  #{$PROGRAM_NAME} -u UUID [CLIENT_DATA_FILE]"
+end
+
+data_file = ARGV.shift || "client_data.yaml"
 
 require "net/http"
 require "uri"
@@ -26,11 +65,30 @@ class Plugin
   end
 end
 
-def urlify(url_name, options = Hash.new)
-  return url_name if url_name.is_a? String
-  URLS[url_name].
-    gsub(/\bUUID\b/, $uuid).
-    gsub(/\b[A-Z_]+\b/) { |key| options[key.downcase.to_sym] || key }
+# Returns either the path or a full URL. 
+# A full URL is returned in the following cases:
+#
+# * the +url_name+ is a string
+# * the :auth => true option is set
+#
+# A full URL is needed (with login info) when posting.
+def urlify(url_name, options = Hash.new)  
+  # add authentication info if :auth => true option set or the url is a String.
+  auth = options.delete(:auth) or url_name.is_a?(String)
+
+  path = if url_name.is_a?(String)
+            url_name
+         else
+            URLS[url_name].
+            gsub(/\bCLIENT_ID\b/, $clientid).
+            gsub(/\b[A-Z_]+\b/) { |key| options[key.downcase.to_sym] || key }
+         end
+         
+  if auth
+    'http://' + $user + ':' + $password + '@' + $server + path
+  else
+    path
+  end
 end
 
 def collapse_params(params, prefix = nil)
@@ -42,27 +100,6 @@ def collapse_params(params, prefix = nil)
     else
       all.merge((prefix ? "#{prefix}[#{key}]" : String(key)) => String(value))
     end
-  end
-end
-
-def post(url_name, error, params = {})
-  response = Net::HTTP.post_form( URI.parse(urlify(url_name)),
-                                  collapse_params(params) )
-  case response
-  when Net::HTTPSuccess
-    yield response if block_given?
-  else
-    abort error
-  end
-end
-
-def get(url_name, error, params = {})
-  response = Net::HTTP.get_response(URI.parse(urlify(url_name)))
-  case response
-  when Net::HTTPSuccess
-    yield response if block_given?
-  else
-    abort error
   end
 end
 
@@ -86,28 +123,33 @@ def error(data, plugin_id)
         {:error => {:subject => data[:subject], :body => data[:body], :plugin_id => plugin_id}} )
 end
 
-# set the server url
-if ARGV.first == "-s"
-  ARGV.shift
-  $server = ARGV.shift
-else
-  $server = DEFAULT_SERVER
+
+def post(url_name, error, params = {})
+  response = Net::HTTP.post_form( URI.parse(urlify(url_name, :auth => true)),
+                                  collapse_params(params) )
+  case response
+  when Net::HTTPSuccess
+    yield response if block_given?
+  else
+    abort error
+  end
 end
 
-URLS   = { :plan   => "#{$server}/clients/UUID/plugins.spy",
-           :report => "#{$server}/clients/UUID/plugins/PLUGIN_ID/reports.spy",
-           :error  => "#{$server}/clients/UUID/plugins/PLUGIN_ID/errors.spy",
-           :alert  => "#{$server}/clients/UUID/plugins/PLUGIN_ID/alerts.spy"}
-
-# set the client id
-if ARGV.first == "-u"
-  ARGV.shift
-  $uuid = ARGV.shift
-else
-  abort "Usage:  #{$PROGRAM_NAME} -u UUID [CLIENT_DATA_FILE]"
+def get(url_name, error, params = {})
+  Net::HTTP.start($server.split(':').first,$server.split(':').last) {|http|
+        req = Net::HTTP::Get.new(urlify(url_name))
+        req.basic_auth $user, $password
+        
+        response = http.request(req)
+        
+        case response
+        when Net::HTTPSuccess
+          yield response if block_given?
+        else
+          abort error
+        end
+      }
 end
-
-data_file = ARGV.shift || "client_data.yaml"
 
 unless File.exist? data_file
   File.open(data_file, "w") do |file|
