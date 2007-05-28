@@ -1,11 +1,6 @@
 #!/usr/bin/env ruby -wKU
 
-SERVER = "http://localhost:8000"
-
-URLS   = { :plan   => "#{SERVER}/clients/UUID/plugins.spy",
-           :report => "#{SERVER}/clients/UUID/plugins/PLUGIN_ID/reports.spy",
-           :error  => "#{SERVER}/clients/UUID/plugins/PLUGIN_ID/errors.spy",
-           :alert  => "#{SERVER}/clients/UUID/plugins/PLUGIN_ID/alerts.spy"}
+DEFAULT_SERVER = "http://localhost:8000"
 
 require "net/http"
 require "uri"
@@ -91,12 +86,27 @@ def error(data, plugin_id)
         {:error => {:subject => data[:subject], :body => data[:body], :plugin_id => plugin_id}} )
 end
 
+# set the server url
+if ARGV.first == "-s"
+  ARGV.shift
+  $server = ARGV.shift
+else
+  $server = DEFAULT_SERVER
+end
+
+URLS   = { :plan   => "#{$server}/clients/UUID/plugins.spy",
+           :report => "#{$server}/clients/UUID/plugins/PLUGIN_ID/reports.spy",
+           :error  => "#{$server}/clients/UUID/plugins/PLUGIN_ID/errors.spy",
+           :alert  => "#{$server}/clients/UUID/plugins/PLUGIN_ID/alerts.spy"}
+
+# set the client id
 if ARGV.first == "-u"
   ARGV.shift
   $uuid = ARGV.shift
 else
   abort "Usage:  #{$PROGRAM_NAME} -u UUID [CLIENT_DATA_FILE]"
 end
+
 data_file = ARGV.shift || "client_data.yaml"
 
 unless File.exist? data_file
