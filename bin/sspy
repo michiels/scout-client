@@ -136,7 +136,7 @@ def post(url_name, error, params = {})
 end
 
 def get(url_name, error, params = {})
-  Net::HTTP.start($server.split(':').first,$server.split(':').last) {|http|
+  Net::HTTP.start($server.split(':').first,($server.split(':').last != $server.split(':').first ? $server.split(':').last : nil )) {|http|
         req = Net::HTTP::Get.new(urlify(url_name))
         req.basic_auth $user, $password
         
