@@ -55,13 +55,14 @@ class Plugin
       @last_loaded = new_plugin
     end
     
-    def load(options = Hash.new)
-      new(options)
+    def load(last_run, options)
+      new(last_run, options)
     end
   end
   
-  def initialize(options = Hash.new)
-    @options = options
+  def initialize(last_run, options)
+    @last_run = last_run
+    @options  = options
   end
 end
 
@@ -165,7 +166,8 @@ get(:plan, "Could not retrieve plan from server.") do |res|
       if (last_run = client_data["last_runs"][plan[:name]]).nil? or
          Time.now > last_run + plan[:interval]
         eval(plan[:code])
-        if plugin = Plugin.last_defined.load(plan[:options] || Hash.new)
+        if plugin = Plugin.last_defined.load( last_run, 
+                                              plan[:options] || Hash.new )
           data = plugin.run
           report(data[:report], plan[:plugin_id]) if data[:report]
           if data[:alerts] and data[:alerts].any?
