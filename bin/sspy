@@ -1,43 +1,85 @@
 #!/usr/bin/env ruby -wKU
 
-DEFAULT_SERVER = "localhost:8000"
+SPY_VERSION = 1.0
 
-# set the server url
-if ARGV.first == "-s"
-  ARGV.shift
-  $server = ARGV.shift
-else
-  $server = DEFAULT_SERVER
+# jeg2 says this might not be necessary:
+require 'optparse'
+
+# set default options
+@options = {:server => "localhost:3000", 
+            :datafile => "client_data.yml"}
+
+opts = OptionParser.new do |opts|
+  opts.banner = "Usage: #{$0} [options] [client_data.yml]"
+
+  opts.on("-s", "--server [SERVER]",
+    "Server to report spy information."
+  ) { |value| @options[:server] = value }
+  opts.on("-u", "--username USERNAME",
+    "Username or UUID for account."
+  ) { |value| @options[:username] = value }
+  opts.on("-p", "--password PASSWORD",
+    "Password for account."
+  ) { |value| @options[:password] = value }
+  opts.on("-c", "--client CLIENT_ID",
+    "The Client ID."
+  ) { |value| @options[:client] = value } 
+
+#   opts.on("-d", "--datafile DATAFILE",
+#     "The optional data file (client_data.yml)."
+#   ) { |value| @options[:datafile] = value } 
+
+# No argument, shows at tail.  This will print an options summary.
+  opts.on_tail("-h", "--help", "Show this message") do
+    puts opts
+    exit
+  end
+
+  # Another typical switch to print the version.
+  opts.on_tail("--version", "Show version") do
+    puts SPY_VERSION
+    exit
+  end
+
+  if ARGV.empty?
+    puts opts
+    exit
+  else
+    opts.parse!(ARGV)
+  end
 end
+
+# username, password and client_id are required
+(@options[:username] && @options[:password] && @options[:client]) or abort opts.to_s
 
 URLS   = { :plan   => "/clients/CLIENT_ID/plugins.spy",
            :report => "/clients/CLIENT_ID/plugins/PLUGIN_ID/reports.spy",
            :error  => "/clients/CLIENT_ID/plugins/PLUGIN_ID/errors.spy",
            :alert  => "/clients/CLIENT_ID/plugins/PLUGIN_ID/alerts.spy"}
 
-# set the user
-if ARGV.first == "-u"
- ARGV.shift
- $user = ARGV.shift
-else
- abort "Usage:  #{$PROGRAM_NAME} -u UUID [CLIENT_DATA_FILE]"
-end
+# # set the user
+# if ARGV.first == "-u"
+#  ARGV.shift
+#  $user = ARGV.shift
+# else
+#  abort "Usage:  #{$PROGRAM_NAME} -u UUID [CLIENT_DATA_FILE]"
+# end
 
-# set the password
-if ARGV.first == "-p"
- ARGV.shift
- $password = ARGV.shift
-else
- abort "Usage:  #{$PROGRAM_NAME} -u UUID [CLIENT_DATA_FILE]"
-end
+# # set the password
+# if ARGV.first == "-p"
+#  ARGV.shift
+#  $password = ARGV.shift
+# else
+#  abort "Usage:  #{$PROGRAM_NAME} -u UUID [CLIENT_DATA_FILE]"
+# end
 
-# set the client id
-if ARGV.first == "-c"
-  ARGV.shift
-  $clientid = ARGV.shift
-else
-  abort "Usage:  #{$PROGRAM_NAME} -u UUID [CLIENT_DATA_FILE]"
-end
+# # set the client id
+# if ARGV.first == "-c"
+#   ARGV.shift
+#   $clientid = ARGV.shift
+# else
+#   abort "Usage:  #{$PROGRAM_NAME} -u UUID [CLIENT_DATA_FILE]"
+# end
 
 data_file = ARGV.shift || "client_data.yaml"
 
@@ -73,20 +115,18 @@ end
 # * the :auth => true option is set
 #
 # A full URL is needed (with login info) when posting.
-def urlify(url_name, options = Hash.new)  
+def urlify(url_name, options = Hash.new)
   # add authentication info if :auth => true option set or the url is a String.
   auth = options.delete(:auth) or url_name.is_a?(String)
-
   path = if url_name.is_a?(String)
             url_name
          else
             URLS[url_name].
-            gsub(/\bCLIENT_ID\b/, $clientid).
+            gsub(/\bCLIENT_ID\b/, @options[:client]).
             gsub(/\b[A-Z_]+\b/) { |key| options[key.downcase.to_sym] || key }
          end
-         
   if auth
-    'http://' + $user + ':' + $password + '@' + $server + path
+    'http://' + @options[:username] + ':' + @options[:password] + '@' + @options[:server] + path
   else
     path
   end
@@ -137,9 +177,9 @@ def post(url_name, error, params = {})
 end
 
 def get(url_name, error, params = {})
-  Net::HTTP.start($server.split(':').first,($server.split(':').last != $server.split(':').first ? $server.split(':').last : nil )) {|http|
+  Net::HTTP.start(@options[:server].split(':').first,(@options[:server].split(':').last != @options[:server].split(':').first ? @options[:server].split(':').last : nil )) {|http|
         req = Net::HTTP::Get.new(urlify(url_name))
-        req.basic_auth $user, $password
+        req.basic_auth @options[:username], @options[:password]
         
         response = http.request(req)
         
