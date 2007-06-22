@@ -3,9 +3,9 @@ Setup instructions ---
 1. cd /var
 2. svn co http://svn.highgroove.com:8080/spy_client/trunk spy
 3. Try running it w/o cron
-   OSX:    /usr/local/bin/ruby /var/spy/bin/sspy -s spy.highgroove.com -u USERLOGIN -p USERPASS -c CLIENTID
-   LINUX:  /usr/bin/ruby /var/spy/bin/sspy -s spy.highgroove.com -u USERLOGIN -p USERPASS -c CLIENTID
+   OSX:    /usr/local/bin/ruby /var/spy/bin/sspy CLIENT_KEY
+   LINUX:  /usr/bin/ruby /var/spy/bin/sspy CLIENT_KEY
 4. Add to etc/crontab (this is for every 10 minutes):
-*/10  *  * * *  root /usr/bin/ruby /var/spy/bin/sspy -s spy.highgroove.com -u USERLOGIN -p USERPASS -c CLIENTID
+*/10  *  * * *  root /usr/bin/ruby /var/spy/bin/sspy CLIENT_KEY
 
-If you are testing with a locally installed spy server, then you can omit the -s option. The server will default to localhost:8000.
+If you are testing with a locally installed spy server, you can use the -s option to aim the client at your server:  -s http://localhost:8000/.

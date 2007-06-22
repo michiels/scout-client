@@ -1,228 +1,48 @@
 #!/usr/bin/env ruby -wKU
 
-SPY_VERSION = 1.0
+$LOAD_PATH << File.join(File.dirname(__FILE__), *%w[.. lib])
+require "sspy"
 
-# jeg2 says this might not be necessary:
-require 'optparse'
+require "optparse"
 
-# set default options
-@options = {:server => "localhost:3000", 
-            :datafile => "client_data.yml"}
+options = { :server  => "http://spy.highgroove.com/",
+            :history => "client_history.yaml" }
 
-opts = OptionParser.new do |opts|
-  opts.banner = "Usage: #{$0} [options] [client_data.yml]"
-
-  opts.on("-s", "--server [SERVER]",
-    "Server to report spy information."
-  ) { |value| @options[:server] = value }
-  opts.on("-u", "--username USERNAME",
-    "Username or UUID for account."
-  ) { |value| @options[:username] = value }
-  opts.on("-p", "--password PASSWORD",
-    "Password for account."
-  ) { |value| @options[:password] = value }
-  opts.on("-c", "--client CLIENT_ID",
-    "The Client ID."
-  ) { |value| @options[:client] = value } 
-
-#   opts.on("-d", "--datafile DATAFILE",
-#     "The optional data file (client_data.yml)."
-#   ) { |value| @options[:datafile] = value } 
-
-# No argument, shows at tail.  This will print an options summary.
-  opts.on_tail("-h", "--help", "Show this message") do
-    puts opts
-    exit
+ARGV.options do |opts|
+  opts.banner = "Usage:  #{File.basename($PROGRAM_NAME)} [OPTIONS] CLIENT_KEY"
+  
+  opts.separator ""
+  opts.separator "CLIENT_KEY is the indentification key assigned to this " +
+                 "client by the server."
+  opts.separator ""
+  opts.separator "Specific Options:"
+  
+  opts.on( "-s", "--server SERVER", String,
+           "The URL for the server this client reports to." ) do |url|
+    options[:server] = url
   end
-
-  # Another typical switch to print the version.
-  opts.on_tail("--version", "Show version") do
-    puts SPY_VERSION
-    exit
-  end
-
-  if ARGV.empty?
-    puts opts
-    exit
-  else
-    opts.parse!(ARGV)
-  end
-end
-
-# username, password and client_id are required
-(@options[:username] && @options[:password] && @options[:client]) or abort opts.to_s
-
-URLS   = { :plan   => "/clients/CLIENT_ID/plugins.spy",
-           :report => "/clients/CLIENT_ID/plugins/PLUGIN_ID/reports.spy",
-           :error  => "/clients/CLIENT_ID/plugins/PLUGIN_ID/errors.spy",
-           :alert  => "/clients/CLIENT_ID/plugins/PLUGIN_ID/alerts.spy"}
-
-# # set the user
-# if ARGV.first == "-u"
-#  ARGV.shift
-#  $user = ARGV.shift
-# else
-#  abort "Usage:  #{$PROGRAM_NAME} -u UUID [CLIENT_DATA_FILE]"
-# end
-
-# # set the password
-# if ARGV.first == "-p"
-#  ARGV.shift
-#  $password = ARGV.shift
-# else
-#  abort "Usage:  #{$PROGRAM_NAME} -u UUID [CLIENT_DATA_FILE]"
-# end
-
-# # set the client id
-# if ARGV.first == "-c"
-#   ARGV.shift
-#   $clientid = ARGV.shift
-# else
-#   abort "Usage:  #{$PROGRAM_NAME} -u UUID [CLIENT_DATA_FILE]"
-# end
-
-data_file = ARGV.shift || "client_data.yaml"
-
-require "net/http"
-require "uri"
-require "yaml"
-
-class Plugin
-  class << self
-    def last_defined
-      @last_loaded
-    end
-    
-    def inherited(new_plugin)
-      @last_loaded = new_plugin
-    end
-    
-    def load(last_run, options)
-      new(last_run, options)
-    end
+  opts.on( "-h", "--history", String,
+           "The file used to track the history of executions." ) do |path|
+    options[:history] = path
   end
   
-  def initialize(last_run, options)
-    @last_run = last_run
-    @options  = options
+  opts.separator "Common Options:"
+  
+  opts.on( "-h", "--help",
+           "Show this message." ) do
+    puts opts
+    exit
   end
-end
-
-# Returns either the path or a full URL. 
-# A full URL is returned in the following cases:
-#
-# * the +url_name+ is a string
-# * the :auth => true option is set
-#
-# A full URL is needed (with login info) when posting.
-def urlify(url_name, options = Hash.new)
-  # add authentication info if :auth => true option set or the url is a String.
-  auth = options.delete(:auth) or url_name.is_a?(String)
-  path = if url_name.is_a?(String)
-            url_name
-         else
-            URLS[url_name].
-            gsub(/\bCLIENT_ID\b/, @options[:client]).
-            gsub(/\b[A-Z_]+\b/) { |key| options[key.downcase.to_sym] || key }
-         end
-  if auth
-    'http://' + @options[:username] + ':' + @options[:password] + '@' + @options[:server] + path
-  else
-    path
-  end
-end
-
-def collapse_params(params, prefix = nil)
-  params.inject(Hash.new) do |all, (key, value)|
-    if value.is_a? Hash
-      all.merge(
-        collapse_params(value, prefix ? "#{prefix}[#{key}]" : String(key))
-      )
-    else
-      all.merge((prefix ? "#{prefix}[#{key}]" : String(key)) => String(value))
-    end
-  end
-end
-
-def report(data, plugin_id)
-  params = {:report => {:data => data, :plugin_id => plugin_id} }
-  post( urlify(:report, :plugin_id => plugin_id),
-        "Unable to report to server.",
-        params )
-end
-
-def alert(data, plugin_id)
-  params = {:alert => {:subject => data[:subject], :body => data[:body], :plugin_id => plugin_id} }
-  post( urlify(:alert, :plugin_id => plugin_id),
-        "Unable to send alert to server.",
-        params )
-end
-
-def error(data, plugin_id)
-  post( urlify(:error, :plugin_id => plugin_id),
-        "Unable to log error on server.",
-        {:error => {:subject => data[:subject], :body => data[:body], :plugin_id => plugin_id}} )
-end
-
-
-def post(url_name, error, params = {})
-  response = Net::HTTP.post_form( URI.parse(urlify(url_name, :auth => true)),
-                                  collapse_params(params) )
-  case response
-  when Net::HTTPSuccess
-    yield response if block_given?
-  else
-    abort error
-  end
-end
-
-def get(url_name, error, params = {})
-  Net::HTTP.start(@options[:server].split(':').first,(@options[:server].split(':').last != @options[:server].split(':').first ? @options[:server].split(':').last : nil )) {|http|
-        req = Net::HTTP::Get.new(urlify(url_name))
-        req.basic_auth @options[:username], @options[:password]
-        
-        response = http.request(req)
-        
-        case response
-        when Net::HTTPSuccess
-          yield response if block_given?
-        else
-          abort error
-        end
-      }
-end
-
-unless File.exist? data_file
-  File.open(data_file, "w") do |file|
-    YAML.dump({"last_runs" => Hash.new}, file)
-  end
-end
-client_data = File.open(data_file) { |file| YAML.load(file) }
-
-get(:plan, "Could not retrieve plan from server.") do |res|
+  
   begin
-    Marshal.load(res.body).each do |plan|
-      @plan = plan
-      if (last_run = client_data["last_runs"][plan[:name]]).nil? or
-         Time.now > last_run + plan[:interval]
-        eval(plan[:code])
-        if plugin = Plugin.last_defined.load( last_run, 
-                                              plan[:options] || Hash.new )
-          data = plugin.run
-          report(data[:report], plan[:plugin_id]) if data[:report]
-          if data[:alerts] and data[:alerts].any?
-            data[:alerts].each { |a| alert(a, plan[:plugin_id]) }
-          end
-          error(data[:error], plan[:plugin_id]) if data[:error]
-          client_data["last_runs"][plan[:name]] = Time.now
-        else
-          error({:subject => "Plugin would not load."}, plan[:plugin_id])
-        end
-      end
-    end
+    opts.parse!
+    raise "Missing CLIENT_KEY" unless ARGV.size == 1
   rescue
-    error({:subject => "Exception:  #{$!.message}.",:body => $!.backtrace}, @plan[:plugin_id])
+    puts opts
+    exit
   end
 end
 
-File.open(data_file, "w") { |file| YAML.dump(client_data, file) }
+SSpy::Server.new(options[:server], ARGV.shift, options[:history]) do |server|
+  server.run_plugins_by_plan
+end
