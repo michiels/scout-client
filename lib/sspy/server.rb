@@ -74,14 +74,14 @@ module SSpy
               exit
             end
             info "Plugin completed its run."
-            report(data[:report], plan[:plugin_id]) if data[:report]
+            report(data[:report], plugin[:plugin_id]) if data[:report]
             if data[:alerts] and not data[:alerts].empty?
-              data[:alerts].each { |a| alert(a, plan[:plugin_id]) }
+              data[:alerts].each { |a| alert(a, plugin[:plugin_id]) }
             end
-            error(data[:error], plan[:plugin_id]) if data[:error]
+            error(data[:error], plugin[:plugin_id]) if data[:error]
             @history["last_runs"][plugin[:name]] = run_time
           else
-            error({:subject => "Plugin would not load."}, plan[:plugin_id])
+            error({:subject => "Plugin would not load."}, plugin[:plugin_id])
           end
         else
           debug "Plugin does not need to be run at this time.  " +
@@ -91,21 +91,21 @@ module SSpy
       end
     end
     
-    def plan
+    def plan(&plugin_handler)
       url = urlify(:plan)
       info "Loading plan from #{url}..."
       get(url, "Could not retrieve plan from server.") do |res|
         begin
-          plan = Marshal.load(res.body)
-          info "Plan loaded.  (#{plan.size} plugins:  " +
-               "#{plan.map { |p| p[:name] }.join(', ')})"
+          plugin_execution_plan = Marshal.load(res.body)
+          info "Plan loaded.  (#{plugin_execution_plan.size} plugins:  " +
+               "#{plugin_execution_plan.map { |p| p[:name] }.join(', ')})"
         rescue TypeError
           fatal "Plan from server was malformed."
           exit
         end
-        plan.each do |plugin|
+        plugin_execution_plan.each do |plugin|
           begin
-            yield plugin
+            plugin_handler[plugin]
           rescue RuntimeError
             error( { :subject => "Exception:  #{$!.message}.",
                      :body    => $!.backtrace },
@@ -180,10 +180,12 @@ module SSpy
       when Net::HTTPSuccess
         response_handler[response] unless response_handler.nil?
       else
-        abort error
+        fatal error
+        exit
       end
     rescue Timeout::Error
-      abort "Request timed out."
+      fatal "Request timed out."
+      exit
     end
     
     # Forward Logger methods to an active instance, when there is one.
