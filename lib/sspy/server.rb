@@ -91,7 +91,7 @@ module SSpy
       end
     end
     
-    def plan(&plugin_handler)
+    def plan
       url = urlify(:plan)
       info "Loading plan from #{url}..."
       get(url, "Could not retrieve plan from server.") do |res|
@@ -105,7 +105,7 @@ module SSpy
         end
         plugin_execution_plan.each do |plugin|
           begin
-            plugin_handler[plugin]
+            yield plugin
           rescue RuntimeError
             error( { :subject => "Exception:  #{$!.message}.",
                      :body    => $!.backtrace },
