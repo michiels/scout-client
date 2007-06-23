@@ -3,7 +3,7 @@
 require "net/http"
 require "uri"
 require "yaml"
-require "logger"
+require "timeout"
 
 module SSpy
   class Server
@@ -12,12 +12,12 @@ module SSpy
              :error  => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/errors.spy",
              :alert  => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/alerts.spy" }
 
-    def initialize(server, client_key, history_file)
+    def initialize(server, client_key, history_file, logger = nil)
       @server       = server
       @client_key   = client_key
       @history_file = history_file
       @history      = Hash.new
-      @log          = Logger.new($stdout)
+      @logger       = logger
       
       if block_given?
         load_history
@@ -28,46 +28,52 @@ module SSpy
     
     def load_history
       unless File.exist? @history_file
-        @log.debug "Creating empty history file..."
+        debug "Creating empty history file..."
         File.open(@history_file, "w") do |file|
           YAML.dump({"last_runs" => Hash.new}, file)
         end
-        @log.info "History file created."
+        info "History file created."
       end
-      @log.debug "Loading history file..."
+      debug "Loading history file..."
       @history = File.open(@history_file) { |file| YAML.load(file) }
-      @log.info "History file loaded."
+      info "History file loaded."
     end
     
     def save_history
-      @log.debug "Saving history file..."
+      debug "Saving history file..."
       File.open(@history_file, "w") { |file| YAML.dump(@history, file) }
-      @log.info "History file saved."
+      info "History file saved."
     end
     
     def run_plugins_by_plan
       plan do |plugin|
-        @log.info "Processing the #{plugin[:name]} plugin:"
+        info "Processing the #{plugin[:name]} plugin:"
         last_run = @history["last_runs"][plugin[:name]]
         run_time = Time.now
         if last_run.nil? or run_time > last_run + plugin[:interval]
-          @log.debug "Plugin is past interval and needs to be run.  " +
-                     "(last run:  #{last_run || 'nil'})"
-          @log.debug "Compiling plugin..."
+          debug "Plugin is past interval and needs to be run.  " +
+                "(last run:  #{last_run || 'nil'})"
+          debug "Compiling plugin..."
           begin
             eval(plugin[:code])
-            @log.info "Plugin compiled."
+            info "Plugin compiled."
           rescue Exception
-            @log.error "Plugin would not compile."
-            next
+            fatal "Plugin would not compile."
+            exit
           end
-          @log.debug "Loading plugin..."
+          debug "Loading plugin..."
           if job = Plugin.last_defined.load( last_run, 
                                              plugin[:options] || Hash.new )
-            @log.info "Plugin loaded."
-            @log.debug "Running plugin..."
-            data = job.run
-            @log.info "Plugin completed its run."
+            info "Plugin loaded."
+            debug "Running plugin..."
+            begin
+              data = nil
+              Timeout.timeout(5) { data = job.run }
+            rescue Timeout::Error
+              fatal "Plugin took too long to run."
+              exit
+            end
+            info "Plugin completed its run."
             report(data[:report], plan[:plugin_id]) if data[:report]
             if data[:alerts] and not data[:alerts].empty?
               data[:alerts].each { |a| alert(a, plan[:plugin_id]) }
@@ -78,29 +84,29 @@ module SSpy
             error({:subject => "Plugin would not load."}, plan[:plugin_id])
           end
         else
-          @log.debug "Plugin does not need to be run at this time.  " +
-                     "(last run:  #{last_run || 'nil'})"
+          debug "Plugin does not need to be run at this time.  " +
+                "(last run:  #{last_run || 'nil'})"
         end
-        @log.info "Plugin processing complete."
+        info "Plugin #{plugin[:name]} processing complete."
       end
     end
     
     def plan
       url = urlify(:plan)
-      @log.info "Loading plan from #{url}..."
+      info "Loading plan from #{url}..."
       get(url, "Could not retrieve plan from server.") do |res|
         begin
           plan = Marshal.load(res.body)
-          @log.info "Plan loaded.  (#{plan.size} plugins:  " +
-                    "#{plan.map { |p| p[:name] }.join(', ')})"
+          info "Plan loaded.  (#{plan.size} plugins:  " +
+               "#{plan.map { |p| p[:name] }.join(', ')})"
         rescue TypeError
-          @log.error "Plan from server was malformed."
+          fatal "Plan from server was malformed."
           exit
         end
         plan.each do |plugin|
           begin
             yield plugin
-          rescue Exception
+          rescue RuntimeError
             error( { :subject => "Exception:  #{$!.message}.",
                      :body    => $!.backtrace },
                    plugin[:plugin_id] )
@@ -111,29 +117,29 @@ module SSpy
 
     def report(data, plugin_id)
       url = urlify(:report, :plugin_id => plugin_id)
-      @log.debug "Sending report to #{url} (#{data.inspect})..."
+      debug "Sending report to #{url} (#{data.inspect})..."
       post url,
            "Unable to send report to server.",
            :report => {:data => data, :plugin_id => plugin_id}
-      @log.info "Report sent."
+      info "Report sent."
     end
 
     def alert(data, plugin_id)
       url = urlify(:alert, :plugin_id => plugin_id)
-      @log.debug "Sending alert to #{url} (subject: #{data[:subject]})..."
+      debug "Sending alert to #{url} (subject: #{data[:subject]})..."
       post url,
            "Unable to send alert to server.",
            :alert => data.merge(:plugin_id => plugin_id)
-      @log.info "Alert sent."
+      info "Alert sent."
     end
 
     def error(data, plugin_id)
       url = urlify(:error, :plugin_id => plugin_id)
-      @log.debug "Sending error to #{url} (subject: #{data[:subject]})..."
+      debug "Sending error to #{url} (subject: #{data[:subject]})..."
       post url,
            "Unable to log error on server.",
             :error => data.merge(:plugin_id => plugin_id)
-      @log.info "Error sent."
+      info "Error sent."
     end
     
     private
@@ -178,6 +184,15 @@ module SSpy
       end
     rescue Timeout::Error
       abort "Request timed out."
+    end
+    
+    # Forward Logger methods to an active instance, when there is one.
+    def method_missing(meth, *args, &block)
+      if (Logger::SEV_LABEL - %w[ANY]).include? meth.to_s.upcase
+        @logger.send(meth, *args, &block) unless @logger.nil?
+      else
+        super
+      end
     end
   end
 end
