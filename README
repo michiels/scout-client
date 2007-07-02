@@ -8,12 +8,16 @@ Setup instructions ---
 4. Add to etc/crontab (this is for every 10 minutes):
 */10  *  * * *  root /usr/bin/ruby /var/spy/bin/sspy CLIENT_KEY
 
+To see some logging of the clients actions while testing it on your platform, launch with:
+
+  /path/to/spy_client/bin/sspy -v CLIENT_KEY
+
 If you want even more logging, use:
 
-/path/to/spy_client/bin/sspy -v -l debug TOKEN
+  /path/to/spy_client/bin/sspy -v -l debug CLIENT_KEY
 
 And if you want to log to a file when using cron, use:
 
-/path/to/spy_client/bin/sspy -v -l debug TOKEN > /path/to/file.log
+  /path/to/spy_client/bin/sspy -v -l debug CLIENT_KEY > /path/to/file.log
 
 If you are testing with a locally installed spy server, you can use the -s option to aim the client at your server:  -s http://localhost:8000/.
