@@ -6,7 +6,7 @@ require "sspy"
 require "optparse"
 require "logger"
 
-options = { :server  => "http://spy.highgroove.com/",
+options = { :server  => "http://scoutapp.com/",
             :history => "client_history.yaml",
             :verbose => false,
             :level   => "info" }
