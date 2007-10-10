@@ -30,7 +30,7 @@ module SSpy
       unless File.exist? @history_file
         debug "Creating empty history file..."
         File.open(@history_file, "w") do |file|
-          YAML.dump({"last_runs" => Hash.new}, file)
+          YAML.dump({"last_runs" => Hash.new, "memory" => Hash.new}, file)
         end
         info "History file created."
       end
@@ -49,6 +49,7 @@ module SSpy
       plan do |plugin|
         info "Processing the #{plugin[:name]} plugin:"
         last_run = @history["last_runs"][plugin[:name]]
+        memory   = @history["memory"][plugin[:name]]
         run_time = Time.now
         if last_run.nil? or run_time > last_run + plugin[:interval]
           debug "Plugin is past interval and needs to be run.  " +
@@ -62,7 +63,7 @@ module SSpy
             exit
           end
           debug "Loading plugin..."
-          if job = Plugin.last_defined.load( last_run, 
+          if job = Plugin.last_defined.load( last_run, (memory || Hash.new),
                                              plugin[:options] || Hash.new )
             info "Plugin loaded."
             debug "Running plugin..."
@@ -80,6 +81,7 @@ module SSpy
             end
             error(data[:error], plugin[:plugin_id]) if data[:error]
             @history["last_runs"][plugin[:name]] = run_time
+            @history["memory"][plugin[:name]]    = data[:memory]
           else
             error({:subject => "Plugin would not load."}, plugin[:plugin_id])
           end

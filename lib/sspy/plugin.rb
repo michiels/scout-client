@@ -9,13 +9,14 @@ module SSpy
         @last_defined = new_plugin
       end
 
-      def load(last_run, options)
-        new(last_run, options)
+      def load(last_run, memory, options)
+        new(last_run, memory, options)
       end
     end
 
-    def initialize(last_run, options)
+    def initialize(last_run, memory, options)
       @last_run = last_run
+      @memory   = memory
       @options  = options
     end
   end
