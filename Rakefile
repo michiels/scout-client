@@ -30,7 +30,7 @@ end
 desc "Upload current documentation to Scout Gem Server"
 task :upload_docs => [:rdoc] do
 	sh "scp -r doc/html/* " +
-	   "deploy@gems.scoutapp.com:/var/www/gem_docs"
+	   "deploy@gems.scoutapp.com:/var/www/gems/docs"
 end
 
 spec = Gem::Specification.new do |spec|

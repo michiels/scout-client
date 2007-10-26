@@ -16,7 +16,7 @@ for more information.
 
 After installing the scout gem:
 
-  $ sudo gem install scout --source gem.scoutapp.com
+  $ sudo gem install scout --source http://gems.scoutapp.com
 
 Simply run:
 

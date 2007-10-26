@@ -5,7 +5,7 @@ RubyGems is the preferred easy install method for the Scout Client.
 To get the latest version, simply enter the following into your command 
 prompt:
 
-	$ sudo gem install scout --source gems.scoutapp.com
+	$ sudo gem install scout --source http://gems.scoutapp.com
 
 You must have RubyGems[http://rubyforge.org/projects/rubygems/] installed for
 the above to work.
