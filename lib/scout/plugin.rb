@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby -wKU
 
-module SSpy
+module Scout
   class Plugin
     class << self
       attr_reader :last_defined

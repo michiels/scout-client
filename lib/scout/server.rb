@@ -5,7 +5,7 @@ require "uri"
 require "yaml"
 require "timeout"
 
-module SSpy
+module Scout
   class Server
     URLS = { :plan   => "/clients/CLIENT_KEY/plugins.spy",
              :report => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/reports.spy",

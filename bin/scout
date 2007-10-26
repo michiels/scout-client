@@ -1,0 +1,122 @@
+#!/usr/bin/env ruby -wKU
+
+$LOAD_PATH << File.join(File.dirname(__FILE__), *%w[.. lib])
+require "scout"
+
+require "optparse"
+require "logger"
+require "fileutils"
+
+CONFIG_DIR = File.join(File.expand_path("~"), ".scout")
+user = ENV["USER"] || ENV["USERNAME"] || "root"
+
+options = { :server  => "http://scoutapp.com/",
+            :history => File.join(CONFIG_DIR ,"client_history.yaml"),
+            :verbose => false,
+            :level   => "info" }
+
+ARGV.options do |opts|
+  opts.banner = "Usage:  #{File.basename($PROGRAM_NAME)} [OPTIONS] CLIENT_KEY"
+  
+  opts.separator ""
+  opts.separator "CLIENT_KEY is the indentification key assigned to this " +
+                 "client by the server."
+  opts.separator ""
+  opts.separator "Note: This client is meant to be installed and invoked " +
+                 "through cron or any other scheduler."
+  opts.separator ""
+  opts.separator "Specific Options:"
+  
+  opts.on( "-s", "--server SERVER", String,
+           "The URL for the server this client reports to." ) do |url|
+    options[:server] = url
+  end
+  opts.on( "-h", "--history", String,
+           "The file used to track the history of executions." ) do |path|
+    options[:history] = path
+  end
+  opts.on( "-l", "--level LEVEL", Logger::SEV_LABEL.map { |l| l.downcase },
+           "The level of logging to report." ) do |level|
+    options[:level] = level
+  end
+  
+  opts.separator "Common Options:"
+  
+  opts.on( "-h", "--help",
+           "Show this message." ) do
+    puts opts
+    exit
+  end
+  opts.on( "-v", "--[no-]verbose",
+           "Turn on logging to STDOUT" ) do |bool|
+    options[:verbose] = bool
+  end
+  
+  begin
+    opts.parse!
+    options[:client_key] = ARGV.shift if ARGV.size == 1
+    # if client key was not specified and we're on an interactive terminal
+    unless options[:client_key] and $stdin.tty?
+      puts "== Scout Installation Wizard =="
+      puts ""
+      puts "You will need to the Client Key displayed in the Client Settings " +
+           "tab.  Please copy the entire key.  It should look like: "
+      puts "  6ecad322-0d17-4cb8-9b2c-a12c4541853f  "
+      puts "Enter the Client Key:"
+      options[:client_key] = gets.chomp!
+
+      # puts "Attempting to find the path to nice... (optional)"
+      # # TODO: find nice if available?
+      # puts "Found: nice"
+      
+      puts "Attempting to contact the server..."
+      begin
+        Scout::Server.new(options[:server],
+                          options[:client_key],
+                          options[:history],
+                          Logger.new($stdout) ) do |server|
+          server.plan { nil }
+        end
+      rescue Exception => ex
+        puts "Could not contact server.  For more help, please visit: "
+        puts " http://scoutapp.com/help "
+        exit
+      end
+      
+      puts "Successfully contacted the server."
+      puts ""
+      puts "The client can be run manually by using: "
+      puts "  #{File.basename($PROGRAM_NAME)} #{options[:client_key]}"
+      puts ""
+      puts "The client can also be installed in the crontab easily using " + 
+           "the following settings: "
+      puts ""
+      puts "*/10 * * * *  #{user} #{File.expand_path($PROGRAM_NAME)} #{options[:client_key]}"
+      puts ""
+      puts "For more usage options, see the help: "
+      puts "  #{File.basename($PROGRAM_NAME)} --help"
+      exit
+    end
+  rescue
+    puts opts
+    exit
+  end
+end
+
+if options[:verbose]
+  log = Logger.new($stdout)
+  log.datetime_format = "%Y-%m-%d %H:%M "
+  log.level = Logger.const_get(options[:level].upcase) rescue Logger::INFO
+else
+  log = nil
+end
+
+# ensure config directory exists
+FileUtils.mkdir_p(CONFIG_DIR)
+
+Scout::Server.new(options[:server],
+                  options[:client_key],
+                  options[:history],
+                  log) do |server|
+  server.run_plugins_by_plan
+end

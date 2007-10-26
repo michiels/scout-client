@@ -1,0 +1,6 @@
+= To Do List
+
+The following is a list of planned expansions for the Scout Client:
+
+ * optionally find the "nice" command if available and use that in the 
+   crontab output
