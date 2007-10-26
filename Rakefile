@@ -1,6 +1,7 @@
 require "rake/rdoctask"
 # require "rake/testtask"
 require "rake/gempackagetask"
+require "net/ssh"
 
 require "rubygems"
 
@@ -74,7 +75,11 @@ Rake::GemPackageTask.new(spec) do |pkg|
 end
 
 desc "Publish Gem to Scout Gem Server"
-task :publish do
+task :publish => [:package] do
 	sh "scp -r pkg/*.gem " +
-	   "deploy@gems.scoutapp.com:/var/www/gems"
+	   "deploy@gems.scoutapp.com:/var/www/gems/gems"
+	ssh = Net::SSH.start('gems.scoutapp.com','deploy')
+	ssh_shell = ssh.shell.sync
+	ssh_out = ssh_shell.send_command "/usr/bin/index_gem_repository.rb -d /var/www/gems"
+  puts "Published, and updated gem server." if ssh_out.stdout.empty? && !ssh_out.stderr
 end
