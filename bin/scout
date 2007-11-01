@@ -1,8 +1,9 @@
-#!/usr/bin/env ruby -wKU
+#!/usr/bin/env ruby
 
+$VERBOSE = true # -w
+$KCODE   = "u"  # -Ku
 $LOAD_PATH << File.join(File.dirname(__FILE__), *%w[.. lib])
 require "scout"
-
 require "optparse"
 require "logger"
 require "fileutils"
