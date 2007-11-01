@@ -8,6 +8,7 @@ require "logger"
 require "fileutils"
 
 CONFIG_DIR = File.join(File.expand_path("~"), ".scout")
+FileUtils.mkdir_p(CONFIG_DIR) # ensure dir exists
 user = ENV["USER"] || ENV["USERNAME"] || "root"
 
 options = { :server  => "http://scoutapp.com/",
@@ -56,7 +57,7 @@ ARGV.options do |opts|
     opts.parse!
     options[:client_key] = ARGV.shift if ARGV.size == 1
     # if client key was not specified and we're on an interactive terminal
-    unless options[:client_key] and $stdin.tty?
+    if options[:client_key].nil? and $stdin.tty?
       puts "== Scout Installation Wizard =="
       puts ""
       puts "You will need to the Client Key displayed in the Client Settings " +
@@ -78,7 +79,7 @@ ARGV.options do |opts|
           server.plan { nil }
         end
       rescue Exception => ex
-        puts "Could not contact server.  For more help, please visit: "
+        puts "Could not contact server: #{ex.message}. For more help, please visit: "
         puts " http://scoutapp.com/help "
         exit
       end
@@ -110,9 +111,6 @@ if options[:verbose]
 else
   log = nil
 end
-
-# ensure config directory exists
-FileUtils.mkdir_p(CONFIG_DIR)
 
 Scout::Server.new(options[:server],
                   options[:client_key],
