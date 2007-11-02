@@ -7,10 +7,10 @@ require "timeout"
 
 module Scout
   class Server
-    URLS = { :plan   => "/clients/CLIENT_KEY/plugins.spy",
-             :report => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/reports.spy",
-             :error  => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/errors.spy",
-             :alert  => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/alerts.spy" }
+    URLS = { :plan   => "/clients/CLIENT_KEY/plugins.scout",
+             :report => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/reports.scout",
+             :error  => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/errors.scout",
+             :alert  => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/alerts.scout" }
 
     def initialize(server, client_key, history_file, logger = nil)
       @server       = server
