@@ -107,7 +107,7 @@ module Scout
         end
         plugin_execution_plan.each do |plugin|
           begin
-            yield plugin
+            yield plugin if block_given?
           rescue RuntimeError
             error( { :subject => "Exception:  #{$!.message}.",
                      :body    => $!.backtrace },
@@ -116,6 +116,7 @@ module Scout
         end
       end
     end
+    alias_method :test, :plan
 
     def report(data, plugin_id)
       url = urlify(:report, :plugin_id => plugin_id)
