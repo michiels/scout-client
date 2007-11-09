@@ -189,6 +189,9 @@ module Scout
     rescue Timeout::Error
       fatal "Request timed out."
       exit
+    rescue Exception
+      fatal "An HTTP error occurred:  #{$!.message}"
+      exit
     end
     
     # Forward Logger methods to an active instance, when there is one.
