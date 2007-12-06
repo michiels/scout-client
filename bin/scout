@@ -68,7 +68,7 @@ log.datetime_format = "%Y-%m-%d %H:%M "
 log.level           = Logger.const_get(options[:level].upcase) \
                         rescue Logger::INFO
 
-FileUtils.mkdir_p(CONFIG_DIR) # ensure dir exists
+FileUtils.mkdir_p(File.dirname(options[:history])) # ensure dir exists
 
 if options[:client_key].nil? and $stdin.tty?  # install wizard
   puts <<-END_INTRO.gsub(/^ {2}/, "")
