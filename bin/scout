@@ -102,6 +102,9 @@ if options[:client_key].nil? and $stdin.tty?  # install wizard
     the following settings:
   
     */10 * * * *  #{USER} #{File.expand_path($PROGRAM_NAME)} #{options[:client_key]}
+    
+    Be sure to update your PATH in /etc/crontab if you have 
+    installed Ruby in an alternate location.
   
     For more usage options, see the help:
   
