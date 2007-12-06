@@ -33,9 +33,9 @@ ARGV.options do |opts|
            "The URL for the server this client reports to." ) do |url|
     options[:server] = url
   end
-  opts.on( "-h", "--history", String,
-           "The file used to track the history of executions." ) do |path|
-    options[:history] = path
+  opts.on( "-d", "--data DATA", String,
+           "The data file used to track the history of executions." ) do |file|
+    options[:history] = file
   end
   opts.on( "-l", "--level LEVEL", Logger::SEV_LABEL.map { |l| l.downcase },
            "The level of logging to report." ) do |level|
@@ -105,6 +105,12 @@ if options[:client_key].nil? and $stdin.tty?  # install wizard
     
     Be sure to update your PATH in /etc/crontab if you have 
     installed Ruby in an alternate location.
+    
+    Also, you may specify a location for the data file if 
+    the #{USER} user does not have write access to the HOME 
+    specified in /etc/crontab.  For example:
+    
+    */10 * * * *  #{USER} #{File.expand_path($PROGRAM_NAME)} #{options[:client_key]} -d /home/#{USER}/.scout/data.yaml
   
     For more usage options, see the help:
   

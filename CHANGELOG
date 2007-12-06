@@ -2,6 +2,11 @@
 
 Below is a complete listing of changes for each revision of the Scout Client.
 
+== 1.0.1
+
+* Fixed bug relating to history file - not using specified history file path.
+
 == 1.0.0
 
 * Initial public release.
+
