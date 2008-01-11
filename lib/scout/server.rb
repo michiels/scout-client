@@ -173,9 +173,10 @@ module Scout
 
     def get(url, error, params = {}, &response_handler)
       request(response_handler, error) do
-        http = Net::HTTP.new(url.host, url.port) 
-        http.use_ssl = true
-        http.start { |h| h.get(url.path) }
+        http             = Net::HTTP.new(url.host, url.port) 
+        http.use_ssl     = true
+        http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+        http.start { |connection| connection.get(url.path) }
       end
     end
     
