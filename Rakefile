@@ -59,7 +59,7 @@ spec = Gem::Specification.new do |spec|
 	spec.require_path = "lib"
 	
   spec.add_dependency "elif"
-  spec.add_dependency "hpricot", "=0.6"
+  # spec.add_dependency "hpricot", "=0.6"
 
 	spec.author            = "Highgroove Studios"
 	spec.email             = "scout@highgroove.com"
