@@ -166,23 +166,24 @@ module Scout
     end
     
     def post(url, error, params = {}, &response_handler)
-      request(response_handler, error) do
-        Net::HTTP.post_form(url, paramify(params))
+      request(url, response_handler, error) do |connection|
+        post = Net::HTTP::Post.new(url.path)
+        post.set_form_data(paramify(params))
+        connection.request(post)
       end
     end
 
     def get(url, error, params = {}, &response_handler)
-      request(response_handler, error) do
-        http             = Net::HTTP.new(url.host, url.port) 
-        http.use_ssl     = true
-        http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-        http.start { |connection| connection.get(url.path) }
+      request(url, response_handler, error) do |connection|
+        connection.get(url.path)
       end
     end
     
-    def request(response_handler, error)
-      response = yield
-      case response
+    def request(url, response_handler, error, &connector)
+      http             = Net::HTTP.new(url.host, url.port)
+      http.use_ssl     = true
+      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+      case response    = no_warnings { http.start(&connector) }
       when Net::HTTPSuccess
         response_handler[response] unless response_handler.nil?
       else
@@ -195,6 +196,14 @@ module Scout
     rescue Exception
       fatal "An HTTP error occurred:  #{$!.message}"
       exit
+    end
+    
+    def no_warnings
+      old_verbose = $VERBOSE
+      $VERBOSE    = false
+      yield
+    ensure
+      $VERBOSE = old_verbose
     end
     
     # Forward Logger methods to an active instance, when there is one.
