@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby -wKU
 
-require "net/http"
+require "net/https"
 require "uri"
 require "yaml"
 require "timeout"
@@ -173,7 +173,9 @@ module Scout
 
     def get(url, error, params = {}, &response_handler)
       request(response_handler, error) do
-        Net::HTTP.start(url.host, url.port) { |http| http.get(url.path) }
+        http = Net::HTTP.new(url.host, url.port) 
+        http.use_ssl = true
+        http.start { |h| h.get(url.path) }
       end
     end
     

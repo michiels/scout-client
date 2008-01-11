@@ -12,7 +12,7 @@ require "fileutils"
 CONFIG_DIR = File.join(File.expand_path("~"), ".scout")
 USER       = ENV["USER"] || ENV["USERNAME"] || "root"
 
-options = { :server  => "http://scoutapp.com/",
+options = { :server  => "https://scoutapp.com/",
             :history => File.join(CONFIG_DIR ,"client_history.yaml"),
             :verbose => false,
             :level   => "info" }
