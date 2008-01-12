@@ -100,10 +100,6 @@ if options[:client_key].nil? and $stdin.tty?  # install wizard
     
     ******* END CRONTAB SAMPLE *******
     
-    For more usage options, see the help:
-  
-      #{File.basename($PROGRAM_NAME)} --help
-      
     For help setting up Scout with crontab, please visit:
 
       http://scoutapp.com/help#cron
