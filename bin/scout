@@ -83,45 +83,39 @@ if options[:client_key].nil? and $stdin.tty?  # install wizard
   END_INTRO
   options[:client_key] = gets.to_s.chomp!
   
-  puts "Attempting to contact the server..."
+  # puts "Attempting to contact the server..."
   begin
     Scout::Server.new( options[:server],
                        options[:client_key],
                        options[:history],
-                       log ) { |server| server.test }
+                       options[:verbose] ? log : nil ) { |server| server.test }
   
     puts <<-END_SUCCESS.gsub(/^ {4}/, "")
     
-    Successfully contacted the server.
+    Success!
   
-    The client can be run manually by using:
-  
-      #{File.basename($PROGRAM_NAME)} #{options[:client_key]}
-  
-    The client can also be installed in the crontab easily using
-    the following settings:
+    ******* NOW, INSTALL IN CRONTAB *******
   
     */10 * * * *  #{USER} #{File.expand_path($PROGRAM_NAME)} #{options[:client_key]}
     
-    Be sure to update your PATH in /etc/crontab if you have 
-    installed Ruby in an alternate location.
+    ******* END CRONTAB SAMPLE *******
     
-    Also, you may specify a location for the data file if 
-    the #{USER} user does not have write access to the HOME 
-    specified in /etc/crontab.  For example:
-    
-    */10 * * * *  #{USER} #{File.expand_path($PROGRAM_NAME)} #{options[:client_key]} -d /home/#{USER}/.scout/data.yaml
-  
     For more usage options, see the help:
   
       #{File.basename($PROGRAM_NAME)} --help
+      
+    For help setting up Scout with crontab, please visit:
+
+      http://scoutapp.com/help#cron
+    
     END_SUCCESS
   rescue SystemExit
     puts <<-END_ERROR.gsub(/^ {4}/, "")
     
-    Could not contact server.  For more help, please visit:
+    Could not contact server. The client key may be incorrect. For more help, please visit:
     
-      http://scoutapp.com/help"
+    http://scoutapp.com/help
+    
     END_ERROR
   end
 else                                          # normal run
