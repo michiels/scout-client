@@ -74,8 +74,8 @@ if options[:client_key].nil? and $stdin.tty?  # install wizard
   puts <<-END_INTRO.gsub(/^ {2}/, "")
   == Scout Installation Wizard ==
   
-  You will need to the Client Key displayed in the Client Settings
-  tab.  Please copy the entire key.  It should look like:
+  You need the Client Key displayed in the Client Settings
+  tab. It looks like:
   
     6ecad322-0d17-4cb8-9b2c-a12c4541853f
   
