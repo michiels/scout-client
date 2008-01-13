@@ -108,7 +108,8 @@ if options[:client_key].nil? and $stdin.tty?  # install wizard
   rescue SystemExit
     puts <<-END_ERROR.gsub(/^ {4}/, "")
     
-    Could not contact server. The client key may be incorrect. For more help, please visit:
+    Could not contact server. The client key may be incorrect. For more help,
+    please visit:
     
     http://scoutapp.com/help
     
