@@ -4,6 +4,7 @@ require "net/https"
 require "uri"
 require "yaml"
 require "timeout"
+require "pp"
 
 module Scout
   class Server
@@ -44,53 +45,58 @@ module Scout
       File.open(@history_file, "w") { |file| YAML.dump(@history, file) }
       info "History file saved."
     end
-    
+        
     def run_plugins_by_plan
       plan do |plugin|
-        info "Processing the #{plugin[:name]} plugin:"
-        last_run = @history["last_runs"][plugin[:name]]
-        memory   = @history["memory"][plugin[:name]]
-        run_time = Time.now
-        if last_run.nil? or run_time > last_run + plugin[:interval]
-          debug "Plugin is past interval and needs to be run.  " +
-                "(last run:  #{last_run || 'nil'})"
-          debug "Compiling plugin..."
+        process_plugin(plugin)
+      end
+    end
+    
+    def process_plugin(plugin)
+      info "Processing the #{plugin[:name]} plugin:"
+      last_run = @history["last_runs"][plugin[:name]]
+      memory   = @history["memory"][plugin[:name]]
+      run_time = Time.now
+      if last_run.nil? or run_time > last_run + plugin[:interval]
+        debug "Plugin is past interval and needs to be run.  " +
+              "(last run:  #{last_run || 'nil'})"
+        debug "Compiling plugin..."
+        begin
+          eval(plugin[:code])
+          info "Plugin compiled."
+        rescue Exception
+          fatal "Plugin would not compile."
+          exit
+        end
+        debug "Loading plugin..."
+        if job = Plugin.last_defined.load( last_run, (memory || Hash.new),
+                                           plugin[:options] || Hash.new )
+          info "Plugin loaded."
+          debug "Running plugin..."
           begin
-            eval(plugin[:code])
-            info "Plugin compiled."
-          rescue Exception
-            fatal "Plugin would not compile."
+            data = nil
+            Timeout.timeout(5) { data = job.run }
+          rescue Timeout::Error
+            fatal "Plugin took too long to run."
             exit
           end
-          debug "Loading plugin..."
-          if job = Plugin.last_defined.load( last_run, (memory || Hash.new),
-                                             plugin[:options] || Hash.new )
-            info "Plugin loaded."
-            debug "Running plugin..."
-            begin
-              data = nil
-              Timeout.timeout(5) { data = job.run }
-            rescue Timeout::Error
-              fatal "Plugin took too long to run."
-              exit
-            end
-            info "Plugin completed its run."
-            report(data[:report], plugin[:plugin_id]) if data[:report]
-            if data[:alerts] and not data[:alerts].empty?
-              data[:alerts].each { |a| alert(a, plugin[:plugin_id]) }
-            end
-            error(data[:error], plugin[:plugin_id]) if data[:error]
-            @history["last_runs"][plugin[:name]] = run_time
-            @history["memory"][plugin[:name]]    = data[:memory]
-          else
-            error({:subject => "Plugin would not load."}, plugin[:plugin_id])
+          info "Plugin completed its run."
+          report(data[:report], plugin[:plugin_id]) if data[:report]
+          if data[:alerts] and not data[:alerts].empty?
+            data[:alerts].each { |a| alert(a, plugin[:plugin_id]) }
           end
+          error(data[:error], plugin[:plugin_id]) if data[:error]
+          @history["last_runs"][plugin[:name]] = run_time
+          @history["memory"][plugin[:name]]    = data[:memory]
         else
-          debug "Plugin does not need to be run at this time.  " +
-                "(last run:  #{last_run || 'nil'})"
+          error({:subject => "Plugin would not load."}, plugin[:plugin_id])
         end
-        info "Plugin #{plugin[:name]} processing complete."
+      else
+        debug "Plugin does not need to be run at this time.  " +
+              "(last run:  #{last_run || 'nil'})"
       end
+      info "Plugin #{plugin[:name]} processing complete."
+      data
     end
     
     def plan
@@ -148,6 +154,7 @@ module Scout
     private
 
     def urlify(url_name, options = Hash.new)
+      return unless @server
       URI.join( @server,
                 URLS[url_name].
                   gsub(/\bCLIENT_KEY\b/, @client_key).
@@ -166,6 +173,7 @@ module Scout
     end
     
     def post(url, error, params = {}, &response_handler)
+      return unless url
       request(url, response_handler, error) do |connection|
         post = Net::HTTP::Post.new(url.path)
         post.set_form_data(paramify(params))
@@ -174,6 +182,7 @@ module Scout
     end
 
     def get(url, error, params = {}, &response_handler)
+      return unless url
       request(url, response_handler, error) do |connection|
         connection.get(url.path)
       end
