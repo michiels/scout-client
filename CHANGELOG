@@ -2,19 +2,25 @@
 
 Below is a complete listing of changes for each revision of the Scout Client.
 
+== 1.0.4
+
+* Enhanced the -o option to take a Ruby Hash.
+* Fixed an issue where a failed plugin run would cause the client to skip all
+  other plugins.
+
 == 1.0.3
 
 * Refactored to allow testing of plugins locally using -p or --plugin option
-  and -o or --plugin-options option
+  and -o or --plugin-options option.
 
 == 1.0.2
 
 * Updated to use SSL by default for all communication to scout server.
-* Added elif dependency
+* Added elif dependency.
 
 == 1.0.1
 
-* Fixed bug relating to history file - not using specified history file path.
+* Fixed bug relating to history file – not using specified history file path.
 
 == 1.0.0
 

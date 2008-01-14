@@ -4,7 +4,6 @@ require "net/https"
 require "uri"
 require "yaml"
 require "timeout"
-require "pp"
 
 module Scout
   class Server
@@ -65,8 +64,8 @@ module Scout
           eval(plugin[:code])
           info "Plugin compiled."
         rescue Exception
-          fatal "Plugin would not compile."
-          exit
+          error "Plugin would not compile."
+          return
         end
         debug "Loading plugin..."
         if job = Plugin.last_defined.load( last_run, (memory || Hash.new),
@@ -77,8 +76,8 @@ module Scout
             data = nil
             Timeout.timeout(5) { data = job.run }
           rescue Timeout::Error
-            fatal "Plugin took too long to run."
-            exit
+            error "Plugin took too long to run."
+            return
           end
           info "Plugin completed its run."
           report(data[:report], plugin[:plugin_id]) if data[:report]

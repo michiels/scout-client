@@ -8,6 +8,7 @@ require "scout"
 require "optparse"
 require "logger"
 require "fileutils"
+require "pp"
 
 CONFIG_DIR = File.join(File.expand_path("~"), ".scout")
 USER       = ENV["USER"] || ENV["USERNAME"] || "root"
@@ -34,7 +35,8 @@ ARGV.options do |opts|
     options[:server] = url
   end
   opts.on( "-p", "--plugin PLUGIN", String,
-           "The path to a plugin to run locally. Useful for Testing." ) do |plugin|
+           "The path to a plugin to run locally. " +
+           "Useful for Testing." ) do |plugin|
     options[:plugin] = plugin
   end  
 
@@ -81,7 +83,8 @@ log.level           = Logger.const_get(options[:level].upcase) \
 
 FileUtils.mkdir_p(File.dirname(options[:history])) # ensure dir exists
 
-if options[:client_key].nil? and options[:plugin].nil? and $stdin.tty?  # install wizard
+if [:client_key, :plugin].all? { |o| options[o].nil? } and
+   $stdin.tty?  # install wizard
   puts <<-END_INTRO.gsub(/^ {2}/, "")
   == Scout Installation Wizard ==
   
@@ -128,33 +131,31 @@ if options[:client_key].nil? and options[:plugin].nil? and $stdin.tty?  # instal
   end
 elsif options[:plugin]                        # local plugin
   # read the plugin_code from the file specified
-  plugin_code = File.open(options[:plugin]) { |file| file.read }
+  plugin_code = File.read(options[:plugin])
 
-  # read the plugin_options from the YAML file specified,
-  # parse each option and use the default value specified
-  # in the options as the value to be passed to the test plugin
-  plugin_options = {}
-  if options[:plugin_options]
-    plugin_options = File.open(options[:plugin_options]) { |file| YAML.load(file) }
-    
-    default_plugin_options = {}
-    plugin_options["options"].keys.each do |key|
-      default_plugin_options[key] = plugin_options["options"][key]["default"]
-    end
-    
+  plugin_options = if options[:plugin_options].to_s[0..0] == "{"
+    eval(options[:plugin_options])  # options from command-line
+  elsif options[:plugin_options]
+    # 
+    # read the plugin_options from the YAML file specified,
+    # parse each option and use the default value specified
+    # in the options as the value to be passed to the test plugin
+    # 
+    Hash[ *File.open(options[:plugin_options]) { |f| YAML.load(f) }["options"].
+           map { |name, details| [name, details["default"]] }.flatten ]
+  else
+    Hash.new
   end
 
-  plugin = {:interval => 0,
-            :plugin_id => 1,
-            :name => "Local Plugin",
-            :code => plugin_code,
-            :options => default_plugin_options}
-  
   Scout::Server.new( nil,
                      options[:client_key],
                      options[:history],
                      options[:verbose] ? log : nil ) do |server|
-    pp server.process_plugin(plugin)
+    pp server.process_plugin( { :interval  => 0,
+                                :plugin_id => 1,
+                                :name      => "Local Plugin",
+                                :code      => plugin_code,
+                                :options   => plugin_options } )
   end  
 else                                          # normal run
   Scout::Server.new( options[:server],
