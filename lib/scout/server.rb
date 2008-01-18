@@ -7,11 +7,19 @@ require "timeout"
 
 module Scout
   class Server
+    
+    # The default URLS are used to communicate with the Scout Server.
     URLS = { :plan   => "/clients/CLIENT_KEY/plugins.scout",
              :report => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/reports.scout",
              :error  => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/errors.scout",
              :alert  => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/alerts.scout" }
 
+    # A plugin cannot take more than PLUGIN_TIMEOUT seconds to execute, 
+    # otherwise, a timeout error is generated.
+    PLUGIN_TIMEOUT = 10
+    
+    # Creates a new Scout Server connection.
+    #
     def initialize(server, client_key, history_file, logger = nil)
       @server       = server
       @client_key   = client_key
@@ -26,6 +34,9 @@ module Scout
       end
     end
     
+    # Loads the history file from disk. If the file does not exist, 
+    # it creates one.
+    #
     def load_history
       unless File.exist? @history_file
         debug "Creating empty history file..."
@@ -39,18 +50,31 @@ module Scout
       info "History file loaded."
     end
     
+    # Saves the history file to disk.
+    #
     def save_history
       debug "Saving history file..."
       File.open(@history_file, "w") { |file| YAML.dump(@history, file) }
       info "History file saved."
     end
-        
+    
+    # Runs all plugins from a given plan. Calls process_plugin on each
+    # plugin.
+    #    
     def run_plugins_by_plan
       plan do |plugin|
         process_plugin(plugin)
       end
     end
     
+    # This is the heart of Scout.  
+    # 
+    # First, it determines if a plugin is past interval and needs to be run.
+    # If it is, it simply evals the code, compiling it.
+    # It then loads the plugin and runs it with a PLUGIN_TIMEOUT time limit.
+    # The plugin generates data, alerts, and errors. In addition, it will
+    # set memory and last_run information in the history file.
+    # 
     def process_plugin(plugin)
       info "Processing the #{plugin[:name]} plugin:"
       last_run = @history["last_runs"][plugin[:name]]
@@ -74,7 +98,7 @@ module Scout
           debug "Running plugin..."
           begin
             data = nil
-            Timeout.timeout(5) { data = job.run }
+            Timeout.timeout(PLUGIN_TIMEOUT) { data = job.run }
           rescue Timeout::Error
             error "Plugin took too long to run."
             return
@@ -98,6 +122,9 @@ module Scout
       data
     end
     
+    # Retrieves the Plugin Plan from the server. This is the list of plugins 
+    # to execute, along with all options.
+    # 
     def plan
       url = urlify(:plan)
       info "Loading plan from #{url}..."
@@ -123,6 +150,8 @@ module Scout
     end
     alias_method :test, :plan
 
+    # Sends report data to the Scout Server.
+    # 
     def report(data, plugin_id)
       url = urlify(:report, :plugin_id => plugin_id)
       debug "Sending report to #{url} (#{data.inspect})..."
@@ -132,6 +161,8 @@ module Scout
       info "Report sent."
     end
 
+    # Sends an alert to the Scout Server.
+    # 
     def alert(data, plugin_id)
       url = urlify(:alert, :plugin_id => plugin_id)
       debug "Sending alert to #{url} (subject: #{data[:subject]})..."
@@ -141,6 +172,8 @@ module Scout
       info "Alert sent."
     end
 
+    # Sends an error to the Scout Server.
+    # 
     def error(data, plugin_id)
       url = urlify(:error, :plugin_id => plugin_id)
       debug "Sending error to #{url} (subject: #{data[:subject]})..."

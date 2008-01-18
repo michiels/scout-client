@@ -10,7 +10,7 @@ require "logger"
 require "fileutils"
 require "pp"
 
-CONFIG_DIR = File.join(File.expand_path("~"), ".scout")
+CONFIG_DIR = File.join((File.expand_path("~") rescue "/"), ".scout")
 USER       = ENV["USER"] || ENV["USERNAME"] || "root"
 
 options = { :server  => "https://scoutapp.com/",

@@ -14,6 +14,8 @@ module Scout
       end
     end
 
+    # Creates a new Scout Plugin to run.
+    # 
     def initialize(last_run, memory, options)
       @last_run = last_run
       @memory   = memory

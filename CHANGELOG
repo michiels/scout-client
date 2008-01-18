@@ -2,6 +2,12 @@
 
 Below is a complete listing of changes for each revision of the Scout Client.
 
+== 1.0.5
+
+* Added more documentation to Server and Plugin classes.
+* Fixed an issue where expand_path(~) would not work if HOME was not set.  
+  This should help Scout run in OS X's LaunchDaemon using launchd.
+
 == 1.0.4
 
 * Enhanced the -o option to take a Ruby Hash.
