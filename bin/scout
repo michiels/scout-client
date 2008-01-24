@@ -155,7 +155,8 @@ elsif options[:plugin]                        # local plugin
                                 :plugin_id => 1,
                                 :name      => "Local Plugin",
                                 :code      => plugin_code,
-                                :options   => plugin_options } )
+                                :options   => plugin_options,
+                                :path      => options[:plugin] } )
   end  
 else                                          # normal run
   Scout::Server.new( options[:server],

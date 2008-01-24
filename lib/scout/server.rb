@@ -85,7 +85,7 @@ module Scout
               "(last run:  #{last_run || 'nil'})"
         debug "Compiling plugin..."
         begin
-          eval(plugin[:code])
+          eval(plugin[:code], TOPLEVEL_BINDING, plugin[:path] || plugin[:name])
           info "Plugin compiled."
         rescue Exception
           error "Plugin would not compile."

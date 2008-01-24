@@ -2,6 +2,10 @@
 
 Below is a complete listing of changes for each revision of the Scout Client.
 
+== 1.0.6
+
+* Improved error backtrace for local testing.
+
 == 1.0.5
 
 * Added more documentation to Server and Plugin classes.
