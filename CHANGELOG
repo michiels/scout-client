@@ -2,6 +2,13 @@
 
 Below is a complete listing of changes for each revision of the Scout Client.
 
+== 1.0.7
+
+* Increased the plugin timeout to 60 seconds.
+* Added PID file protection to the client so only one copy will run at a time.
+* Fixed a bug that caused the wrong error message to be shown for the case when
+  a plugin times out.
+
 == 1.0.6
 
 * Improved error backtrace for local testing.
