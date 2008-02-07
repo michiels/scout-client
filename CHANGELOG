@@ -2,6 +2,11 @@
 
 Below is a complete listing of changes for each revision of the Scout Client.
 
+== 1.0.8
+
+* Added optional report field scout_time
+* Changed #error method name to #scout_error to fix conflict with Logger#error
+
 == 1.0.7
 
 * Increased the plugin timeout to 60 seconds.
