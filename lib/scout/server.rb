@@ -90,7 +90,7 @@ module Scout
           eval(plugin[:code], TOPLEVEL_BINDING, plugin[:path] || plugin[:name])
           info "Plugin compiled."
         rescue Exception
-          error "Plugin would not compile."
+          error "Plugin would not compile: #{$!.message}"
           return
         end
         debug "Loading plugin..."
@@ -112,11 +112,11 @@ module Scout
           if data[:alerts] and not data[:alerts].empty?
             data[:alerts].each { |a| alert(a, plugin[:plugin_id]) }
           end
-          error(data[:error], plugin[:plugin_id]) if data[:error]
+          scout_error(data[:error], plugin[:plugin_id]) if data[:error]
           @history["last_runs"][plugin[:name]] = run_time
           @history["memory"][plugin[:name]]    = data[:memory]
         else
-          error({:subject => "Plugin would not load."}, plugin[:plugin_id])
+          scout_error({:subject => "Plugin would not load."}, plugin[:plugin_id])
         end
       else
         debug "Plugin does not need to be run at this time.  " +
@@ -146,7 +146,7 @@ module Scout
           begin
             yield plugin if block_given?
           rescue RuntimeError
-            error( { :subject => "Exception:  #{$!.message}.",
+            scout_error( { :subject => "Exception:  #{$!.message}.",
                      :body    => $!.backtrace },
                    plugin[:plugin_id] )
           end
@@ -158,10 +158,17 @@ module Scout
     # Sends report data to the Scout Server.
     def report(data, plugin_id)
       url = urlify(:report, :plugin_id => plugin_id)
+      report_hash = {:data => data, :plugin_id => plugin_id}
+      
+      # add in any special fields
+      if time = ( data.delete(:scout_time) || data.delete("scout_time") )
+        report_hash[:time] = time
+      end
+      
       debug "Sending report to #{url} (#{data.inspect})..."
       post url,
            "Unable to send report to server.",
-           :report => {:data => data, :plugin_id => plugin_id}
+           :report => report_hash
       info "Report sent."
     end
 
@@ -176,7 +183,7 @@ module Scout
     end
 
     # Sends an error to the Scout Server.
-    def error(data, plugin_id)
+    def scout_error(data, plugin_id)
       url = urlify(:error, :plugin_id => plugin_id)
       debug "Sending error to #{url} (subject: #{data[:subject]})..."
       post url,
