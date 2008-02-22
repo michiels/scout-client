@@ -99,13 +99,15 @@ module Scout
           info "Plugin loaded."
           debug "Running plugin..."
           begin
-            data = nil
+            data = {}
             Timeout.timeout(PLUGIN_TIMEOUT, PluginTimeoutError) do
               data = job.run
             end
           rescue Timeout::Error
             error "Plugin took too long to run."
             return
+          rescue Exception
+            error "Plugin failed to run: #{$!.backtrace}"
           end
           info "Plugin completed its run."
           report(data[:report], plugin[:plugin_id]) if data[:report]
@@ -231,8 +233,10 @@ module Scout
     
     def request(url, response_handler, error, &connector)
       http             = Net::HTTP.new(url.host, url.port)
-      http.use_ssl     = true
-      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+      if url.is_a? URI::HTTPS
+        http.use_ssl     = true
+        http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+      end
       case response    = no_warnings { http.start(&connector) }
       when Net::HTTPSuccess
         response_handler[response] unless response_handler.nil?
