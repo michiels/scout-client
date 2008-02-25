@@ -23,3 +23,12 @@ Simply run:
   $ scout
 
 to run the installation wizard.  You'll need your Client Key to continue.
+
+
+
+
+
+== Further Development / Test Suite
+
+To test, you will need a valid Scout Server, client key, and plugin id.  See 
+the test/scout_test.rb file for more details.

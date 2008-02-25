@@ -1,5 +1,5 @@
 require "rake/rdoctask"
-# require "rake/testtask"
+require "rake/testtask"
 require "rake/gempackagetask"
 require "net/ssh"
 
@@ -11,12 +11,11 @@ version = File.read(lib)[/^\s*VERSION\s*=\s*(['"])(\d\.\d\.\d)\1/, 2]
 
 task :default => [:test]
 
-# TODO: add testing
-# Rake::TestTask.new do |test|
-#   test.libs       << "test"
-#   test.test_files = [ "test/ts_all.rb" ]
-#   test.verbose    = true
-# end
+Rake::TestTask.new do |test|
+  test.libs       << "test"
+  test.test_files = [ "test/scout_test.rb" ]
+  test.verbose    = true
+end
 
 Rake::RDocTask.new do |rdoc|
 	rdoc.main     = "README"

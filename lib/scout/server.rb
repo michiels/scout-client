@@ -11,10 +11,10 @@ module Scout
     class PluginTimeoutError < RuntimeError; end
     
     # The default URLS are used to communicate with the Scout Server.
-    URLS = { :plan   => "/clients/CLIENT_KEY/plugins.scout",
-             :report => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/reports.scout",
-             :error  => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/errors.scout",
-             :alert  => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/alerts.scout" }
+    URLS = { :plan   => "/clients/CLIENT_KEY/plugins.scout?version=CLIENT_VERSION",
+             :report => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/reports.scout?version=CLIENT_VERSION",
+             :error  => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/errors.scout?version=CLIENT_VERSION",
+             :alert  => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/alerts.scout?version=CLIENT_VERSION" }
 
     # 
     # A plugin cannot take more than PLUGIN_TIMEOUT seconds to execute, 
@@ -110,11 +110,23 @@ module Scout
             error "Plugin failed to run: #{$!.backtrace}"
           end
           info "Plugin completed its run."
-          report(data[:report], plugin[:plugin_id]) if data[:report]
+          
+          # handle single report or array of reports
+          send_report(data[:report], plugin[:plugin_id])   if data[:report]
+          if data[:reports] and not data[:reports].empty?
+            data[:reports].each { |r| send_report(r, plugin[:plugin_id]) }
+          end          
+          # handle single alert or array of alerts
+          send_alert(data[:alert], plugin[:plugin_id])   if data[:alert]
           if data[:alerts] and not data[:alerts].empty?
-            data[:alerts].each { |a| alert(a, plugin[:plugin_id]) }
+            data[:alerts].each { |a| send_alert(a, plugin[:plugin_id]) }
           end
-          scout_error(data[:error], plugin[:plugin_id]) if data[:error]
+          # handle single error or array of errors
+          send_error(data[:error], plugin[:plugin_id]) if data[:error]
+          if data[:errors] and not data[:errors].empty?
+            data[:errors].each { |e| send_error(e, plugin[:plugin_id]) }
+          end
+          
           @history["last_runs"][plugin[:name]] = run_time
           @history["memory"][plugin[:name]]    = data[:memory]
         else
@@ -158,7 +170,7 @@ module Scout
     alias_method :test, :plan
 
     # Sends report data to the Scout Server.
-    def report(data, plugin_id)
+    def send_report(data, plugin_id)
       url = urlify(:report, :plugin_id => plugin_id)
       report_hash = {:data => data, :plugin_id => plugin_id}
       
@@ -175,7 +187,7 @@ module Scout
     end
 
     # Sends an alert to the Scout Server.
-    def alert(data, plugin_id)
+    def send_alert(data, plugin_id)
       url = urlify(:alert, :plugin_id => plugin_id)
       debug "Sending alert to #{url} (subject: #{data[:subject]})..."
       post url,
@@ -185,7 +197,7 @@ module Scout
     end
 
     # Sends an error to the Scout Server.
-    def scout_error(data, plugin_id)
+    def send_error(data, plugin_id)
       url = urlify(:error, :plugin_id => plugin_id)
       debug "Sending error to #{url} (subject: #{data[:subject]})..."
       post url,
@@ -198,6 +210,7 @@ module Scout
 
     def urlify(url_name, options = Hash.new)
       return unless @server
+      options.merge!(:client_version => Scout::VERSION)
       URI.join( @server,
                 URLS[url_name].
                   gsub(/\bCLIENT_KEY\b/, @client_key).
@@ -218,7 +231,7 @@ module Scout
     def post(url, error, params = {}, &response_handler)
       return unless url
       request(url, response_handler, error) do |connection|
-        post = Net::HTTP::Post.new(url.path)
+        post = Net::HTTP::Post.new(url.to_s)
         post.set_form_data(paramify(params))
         connection.request(post)
       end
@@ -227,7 +240,7 @@ module Scout
     def get(url, error, params = {}, &response_handler)
       return unless url
       request(url, response_handler, error) do |connection|
-        connection.get(url.path)
+        connection.get(url.to_s)
       end
     end
     
