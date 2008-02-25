@@ -6,6 +6,11 @@ Below is a complete listing of changes for each revision of the Scout Client.
 
 * Fixed bug when plugin code would not compile, throws Exception.
 * Added ability to test/call scout on non-https servers (for debugging).
+* Client now sends client version to server.
+* Client can send single values (using report, alert, error symbols) or multiple
+ values (using reports, alerts, errors symbols).
+* Added test suite, which is now the default rake task.
+
 
 == 1.0.8
 
