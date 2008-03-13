@@ -231,7 +231,7 @@ module Scout
     def post(url, error, params = {}, &response_handler)
       return unless url
       request(url, response_handler, error) do |connection|
-        post = Net::HTTP::Post.new(url.to_s)
+        post = Net::HTTP::Post.new(url.path + (url.query ? ('?' + url.query) : ''))
         post.set_form_data(paramify(params))
         connection.request(post)
       end
@@ -240,7 +240,7 @@ module Scout
     def get(url, error, params = {}, &response_handler)
       return unless url
       request(url, response_handler, error) do |connection|
-        connection.get(url.to_s)
+        connection.get(url.path + (url.query ? ('?' + url.query) : ''))
       end
     end
     
