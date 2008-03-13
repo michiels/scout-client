@@ -1,7 +1,3 @@
-= Change Log
-
-Below is a complete listing of changes for each revision of the Scout Client.
-
 == 1.1.0
 
 * Using better url.path + url.query if present to properly encode URLs.

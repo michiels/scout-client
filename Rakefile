@@ -1,13 +1,20 @@
 require "rake/rdoctask"
 require "rake/testtask"
 require "rake/gempackagetask"
+require "rake/contrib/rubyforgepublisher"
 require "net/ssh"
 
 require "rubygems"
+require "rubyforge"
 
 dir     = File.dirname(__FILE__)
 lib     = File.join(dir, "lib", "scout.rb")
 version = File.read(lib)[/^\s*VERSION\s*=\s*(['"])(\d\.\d\.\d)\1/, 2]
+history = File.read("CHANGELOG").split(/^(===.*)/)
+changes ||= history[0..2].join.strip
+
+need_tar = true
+need_zip = true
 
 task :default => [:test]
 
@@ -25,12 +32,6 @@ Rake::RDocTask.new do |rdoc|
 	                         "TODO",    "CHANGELOG",
 	                         "AUTHORS", "COPYING",
 	                         "LICENSE", "lib/" )
-end
-
-desc "Upload current documentation to Scout Gem Server"
-task :upload_docs => [:rdoc] do
-	sh "scp -r doc/html/* " +
-	   "deploy@gems.scoutapp.com:/var/www/gems/docs"
 end
 
 spec = Gem::Specification.new do |spec|
@@ -62,7 +63,7 @@ spec = Gem::Specification.new do |spec|
 
 	spec.author            = "Highgroove Studios"
 	spec.email             = "scout@highgroove.com"
-	# spec.rubyforge_project = "scout"
+	spec.rubyforge_project = "scout"
 	spec.homepage          = "http://scoutapp.com"
 	spec.description       = <<END_DESC
 Scout makes monitoring and reporting on your web applications as flexible and simple as possible.
@@ -72,16 +73,55 @@ END_DESC
 end
 
 Rake::GemPackageTask.new(spec) do |pkg|
-	pkg.need_zip = true
-	pkg.need_tar = true
+	pkg.need_zip = need_tar
+	pkg.need_tar = need_zip
 end
 
 desc "Publish Gem to Scout Gem Server"
 task :publish => [:package] do
+  pkg = "pkg/#{spec.name}-#{spec.version}"
+
+  if $DEBUG then
+    puts "release_id = rf.add_release #{spec.rubyforge_project.inspect}, #{spec.name.inspect}, #{spec.version.inspect}, \"#{pkg}.tgz\""
+    puts "rf.add_file #{spec.rubyforge_project.inspect}, #{spec.name.inspect}, release_id, \"#{pkg}.gem\""
+  end
+
+  puts "Publishing on RubyForge"
+  rf = RubyForge.new
+  puts "Logging in"
+  rf.login
+
+  c = rf.userconfig
+  c["release_notes"] = spec.description if spec.description
+  c["release_changes"] = changes if changes
+  c["preformatted"] = true
+
+  files = [(need_tar ? "#{pkg}.tgz" : nil),
+           (need_zip ? "#{pkg}.zip" : nil),
+           "#{pkg}.gem"].compact
+
+  puts "Releasing #{spec.name} v. #{spec.version}"
+  rf.add_release spec.rubyforge_project, spec.name, spec.version, *files
+
+  puts "Publishing on Scout Server"
 	sh "scp -r pkg/*.gem " +
 	   "deploy@gems.scoutapp.com:/var/www/gems/gems"
 	ssh = Net::SSH.start('gems.scoutapp.com','deploy')
 	ssh_shell = ssh.shell.sync
 	ssh_out = ssh_shell.send_command "/usr/bin/index_gem_repository.rb -d /var/www/gems"
   puts "Published, and updated gem server." if ssh_out.stdout.empty? && !ssh_out.stderr
+end
+
+desc "Upload current documentation to Scout Gem Server and RubyForge"
+task :upload_docs => [:rdoc] do
+	sh "scp -r doc/html/* " +
+	   "deploy@gems.scoutapp.com:/var/www/gems/docs"
+	   
+  config = YAML.load(File.read(File.expand_path("~/.rubyforge/user-config.yml")))
+  host = "#{config["username"]}@rubyforge.org"
+
+  remote_dir = "/var/www/gforge-projects/#{spec.rubyforge_project}"
+  local_dir = 'doc/html'
+
+  sh %{rsync -av --delete #{local_dir}/ #{host}:#{remote_dir}}
 end
