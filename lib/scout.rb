@@ -4,5 +4,5 @@ require "scout/plugin"
 require "scout/server"
 
 module Scout
-  VERSION = "1.0.9".freeze
+  VERSION = "1.1.0".freeze
 end
