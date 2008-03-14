@@ -1,6 +1,7 @@
 == 1.1.1
 
 * Fixed the double plugin load bug
+* Ensuring that plugins are unloaded, even on error
 
 == 1.1.0
 

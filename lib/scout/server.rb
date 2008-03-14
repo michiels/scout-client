@@ -136,6 +136,7 @@ module Scout
         debug "Plugin does not need to be run at this time.  " +
               "(last run:  #{last_run || 'nil'})"
       end
+    ensure
       debug "Removing plugin code..."
       begin
         Object.send(:remove_const, Plugin.last_defined.to_s.split("::").first)
