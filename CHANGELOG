@@ -1,3 +1,7 @@
+== 1.1.1
+
+* Fixed the double plugin load bug
+
 == 1.1.0
 
 * Using better url.path + url.query if present to properly encode URLs.
@@ -10,7 +14,6 @@
 * Client can send single values (using report, alert, error symbols) or multiple
  values (using reports, alerts, errors symbols).
 * Added test suite, which is now the default rake task.
-
 
 == 1.0.8
 
@@ -56,5 +59,4 @@
 
 == 1.0.0
 
-* Initial public release.
-
+* Initial release.

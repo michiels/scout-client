@@ -136,6 +136,13 @@ module Scout
         debug "Plugin does not need to be run at this time.  " +
               "(last run:  #{last_run || 'nil'})"
       end
+      debug "Removing plugin code..."
+      begin
+        Object.send(:remove_const, Plugin.last_defined.to_s.split("::").first)
+        info "Plugin Removed."
+      rescue
+        error "Unable to remove plugin."
+      end
       info "Plugin #{plugin[:name]} processing complete."
       data
     end
