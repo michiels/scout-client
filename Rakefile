@@ -79,7 +79,7 @@ end
 
 desc "Publish Gem to Scout Gem Server"
 task :publish => [:package] do
-  pkg = "pkg/#{spec.name}-#{spec.version}"
+  pkg = "pkg/#{spec.name}-#{version}"
 
   if $DEBUG then
     puts "release_id = rf.add_release #{spec.rubyforge_project.inspect}, #{spec.name.inspect}, #{spec.version.inspect}, \"#{pkg}.tgz\""
@@ -100,8 +100,8 @@ task :publish => [:package] do
            (need_zip ? "#{pkg}.zip" : nil),
            "#{pkg}.gem"].compact
 
-  puts "Releasing #{spec.name} v. #{spec.version}"
-  rf.add_release spec.rubyforge_project, spec.name, spec.version, *files
+  puts "Releasing #{spec.name} v. #{version}"
+  rf.add_release spec.rubyforge_project, spec.name, version, *files
 
   puts "Publishing on Scout Server"
 	sh "scp -r pkg/*.gem " +
