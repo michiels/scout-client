@@ -77,8 +77,26 @@ Rake::GemPackageTask.new(spec) do |pkg|
 	pkg.need_tar = need_zip
 end
 
-desc "Publish Gem to Scout Gem Server"
+desc "Publishes to Scout Gem Server and Rubyforge"
 task :publish => [:package] do
+  publish_scout
+  publish_rubyforge
+end
+
+desc "Publish Gem to Scout Gem Server"
+task :publish_scout => [:package] do
+
+  puts "Publishing on Scout Server"
+	sh "scp -r pkg/*.gem " +
+	   "deploy@gems.scoutapp.com:/var/www/gems/gems"
+	ssh = Net::SSH.start('gems.scoutapp.com','deploy')
+	ssh_shell = ssh.shell.sync
+	ssh_out = ssh_shell.send_command "/usr/bin/index_gem_repository.rb -d /var/www/gems"
+  puts "Published, and updated gem server." if ssh_out.stdout.empty? && !ssh_out.stderr
+end
+
+desc "Publishes Gem to Rubyforge"
+task :publish_rubyforge => [:package] do
   pkg = "pkg/#{spec.name}-#{version}"
 
   if $DEBUG then
@@ -102,14 +120,6 @@ task :publish => [:package] do
 
   puts "Releasing #{spec.name} v. #{version}"
   rf.add_release spec.rubyforge_project, spec.name, version, *files
-
-  puts "Publishing on Scout Server"
-	sh "scp -r pkg/*.gem " +
-	   "deploy@gems.scoutapp.com:/var/www/gems/gems"
-	ssh = Net::SSH.start('gems.scoutapp.com','deploy')
-	ssh_shell = ssh.shell.sync
-	ssh_out = ssh_shell.send_command "/usr/bin/index_gem_repository.rb -d /var/www/gems"
-  puts "Published, and updated gem server." if ssh_out.stdout.empty? && !ssh_out.stderr
 end
 
 desc "Upload current documentation to Scout Gem Server and RubyForge"

@@ -1,3 +1,7 @@
+== 1.1.2
+
+* Fixed the plugin interval not running on time due to a ">=" bug
+
 == 1.1.1
 
 * Fixed the double plugin load bug

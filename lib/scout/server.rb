@@ -82,7 +82,7 @@ module Scout
       last_run = @history["last_runs"][plugin[:name]]
       memory   = @history["memory"][plugin[:name]]
       run_time = Time.now
-      if last_run.nil? or run_time > last_run + plugin[:interval]
+      if last_run.nil? or run_time >= last_run + plugin[:interval]
         debug "Plugin is past interval and needs to be run.  " +
               "(last run:  #{last_run || 'nil'})"
         debug "Compiling plugin..."
