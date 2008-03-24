@@ -1,3 +1,7 @@
+== 1.1.3
+
+* Fixed bug with running plugin using the -p option, new ensure wasn't returning the data.
+
 == 1.1.2
 
 * Fixed the plugin interval not running on time due to a ">=" bug
