@@ -136,6 +136,7 @@ module Scout
         debug "Plugin does not need to be run at this time.  " +
               "(last run:  #{last_run || 'nil'})"
       end
+      data
     ensure
       debug "Removing plugin code..."
       begin
@@ -145,7 +146,6 @@ module Scout
         error "Unable to remove plugin."
       end
       info "Plugin #{plugin[:name]} processing complete."
-      data
     end
     
     # 
