@@ -146,8 +146,8 @@ module Scout
         rescue
           error "Unable to remove plugin."
         end
-        info "Plugin #{plugin[:name]} processing complete."
       end
+      info "Plugin #{plugin[:name]} processing complete."
     end
     
     # 
