@@ -127,7 +127,7 @@ if [:client_key, :plugin].all? { |o| options[o].nil? } and
   
   Enter the Client Key:
   END_INTRO
-  options[:client_key] = gets.to_s.chomp!
+  options[:client_key] = gets.to_s.strip
   
   # puts "Attempting to contact the server..."
   begin

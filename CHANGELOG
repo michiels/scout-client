@@ -1,3 +1,7 @@
+== 1.1.4
+
+* Trim all space from the client key during install.
+
 == 1.1.3
 
 * Fixed bug with running plugin using the -p option, new ensure wasn't returning the data.
