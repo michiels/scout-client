@@ -1,10 +1,12 @@
 == 1.1.4
 
-* Trim all space from the client key during install.
+* Trim all space from the client key during install
+* Trying a fix for the plugin removal errors
 
 == 1.1.3
 
-* Fixed bug with running plugin using the -p option, new ensure wasn't returning the data.
+* Fixed bug with running plugin using the -p option, new ensure wasn't returning
+  the data
 
 == 1.1.2
 
@@ -17,16 +19,16 @@
 
 == 1.1.0
 
-* Using better url.path + url.query if present to properly encode URLs.
+* Using better url.path + url.query if present to properly encode URLs
 
 == 1.0.9
 
-* Fixed bug when plugin code would not compile, throws Exception.
-* Added ability to test/call scout on non-https servers (for debugging).
-* Client now sends client version to server.
+* Fixed bug when plugin code would not compile, throws Exception
+* Added ability to test/call scout on non-https servers (for debugging)
+* Client now sends client version to server
 * Client can send single values (using report, alert, error symbols) or multiple
- values (using reports, alerts, errors symbols).
-* Added test suite, which is now the default rake task.
+  values (using reports, alerts, errors symbols)
+* Added test suite, which is now the default rake task
 
 == 1.0.8
 
@@ -35,41 +37,41 @@
 
 == 1.0.7
 
-* Increased the plugin timeout to 60 seconds.
-* Added PID file protection to the client so only one copy will run at a time.
+* Increased the plugin timeout to 60 seconds
+* Added PID file protection to the client so only one copy will run at a time
 * Fixed a bug that caused the wrong error message to be shown for the case when
-  a plugin times out.
+  a plugin times out
 
 == 1.0.6
 
-* Improved error backtrace for local testing.
+* Improved error backtrace for local testing
 
 == 1.0.5
 
-* Added more documentation to Server and Plugin classes.
-* Fixed an issue where expand_path(~) would not work if HOME was not set.  
-  This should help Scout run in OS X's LaunchDaemon using launchd.
+* Added more documentation to Server and Plugin classes
+* Fixed an issue where expand_path(~) would not work if HOME was not set, which  
+  should help Scout run in OS X's LaunchDaemon using launchd
 
 == 1.0.4
 
-* Enhanced the -o option to take a Ruby Hash.
+* Enhanced the -o option to take a Ruby Hash
 * Fixed an issue where a failed plugin run would cause the client to skip all
-  other plugins.
+  other plugins
 
 == 1.0.3
 
 * Refactored to allow testing of plugins locally using -p or --plugin option
-  and -o or --plugin-options option.
+  and -o or --plugin-options option
 
 == 1.0.2
 
-* Updated to use SSL by default for all communication to scout server.
-* Added elif dependency.
+* Updated to use SSL by default for all communication to scout server
+* Added elif dependency
 
 == 1.0.1
 
-* Fixed bug relating to history file – not using specified history file path.
+* Fixed bug relating to history file – not using specified history file path
 
 == 1.0.0
 
-* Initial release.
+* Initial release

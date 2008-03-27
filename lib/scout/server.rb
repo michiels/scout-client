@@ -138,14 +138,16 @@ module Scout
       end
       data
     ensure
-      debug "Removing plugin code..."
-      begin
-        Object.send(:remove_const, Plugin.last_defined.to_s.split("::").first)
-        info "Plugin Removed."
-      rescue
-        error "Unable to remove plugin."
+      if Plugin.last_defined
+        debug "Removing plugin code..."
+        begin
+          Object.send(:remove_const, Plugin.last_defined.to_s.split("::").first)
+          info "Plugin Removed."
+        rescue
+          error "Unable to remove plugin."
+        end
+        info "Plugin #{plugin[:name]} processing complete."
       end
-      info "Plugin #{plugin[:name]} processing complete."
     end
     
     # 
