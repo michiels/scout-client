@@ -78,10 +78,7 @@ Rake::GemPackageTask.new(spec) do |pkg|
 end
 
 desc "Publishes to Scout Gem Server and Rubyforge"
-task :publish => [:package] do
-  publish_scout
-  publish_rubyforge
-end
+task :publish => [:package, :publish_scout, :publish_rubyforge]
 
 desc "Publish Gem to Scout Gem Server"
 task :publish_scout => [:package] do
