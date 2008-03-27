@@ -88,7 +88,7 @@ task :publish_scout => [:package] do
 	   "deploy@gems.scoutapp.com:/var/www/gems/gems"
 	ssh = Net::SSH.start('gems.scoutapp.com','deploy')
 	ssh_shell = ssh.shell.sync
-	ssh_out = ssh_shell.send_command "/usr/bin/index_gem_repository.rb -d /var/www/gems"
+	ssh_out = ssh_shell.send_command "/usr/bin/gem generate_index -d /var/www/gems"
   puts "Published, and updated gem server." if ssh_out.stdout.empty? && !ssh_out.stderr
 end
 
