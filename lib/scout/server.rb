@@ -142,6 +142,7 @@ module Scout
         debug "Removing plugin code..."
         begin
           Object.send(:remove_const, Plugin.last_defined.to_s.split("::").first)
+          Plugin.last_defined = nil
           info "Plugin Removed."
         rescue
           error "Unable to remove plugin."

@@ -1,3 +1,8 @@
+== 1.1.5
+
+* A more robust solution for plugin removal
+* Added seconds to logging
+
 == 1.1.4
 
 * Trim all space from the client key during install

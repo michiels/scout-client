@@ -3,7 +3,7 @@
 module Scout
   class Plugin
     class << self
-      attr_reader :last_defined
+      attr_accessor :last_defined
 
       def inherited(new_plugin)
         @last_defined = new_plugin
