@@ -21,6 +21,11 @@ module Scout
     # otherwise, a timeout error is generated.
     # 
     PLUGIN_TIMEOUT = 60
+    #
+    # A fuzzy range of seconds in which it is okay to rerun a plugin.
+    # We consider the interval close enough at this point.
+    # 
+    RUN_DELTA = 30
     
     # Creates a new Scout Server connection.
     def initialize(server, client_key, history_file, logger = nil)
@@ -82,7 +87,8 @@ module Scout
       last_run = @history["last_runs"][plugin[:name]]
       memory   = @history["memory"][plugin[:name]]
       run_time = Time.now
-      if last_run.nil? or run_time >= last_run + plugin[:interval]
+      delta    = last_run.nil? ? nil : run_time - (last_run + plugin[:interval])
+      if last_run.nil? or delta.between?(-RUN_DELTA, 0) or delta >= 0
         debug "Plugin is past interval and needs to be run.  " +
               "(last run:  #{last_run || 'nil'})"
         debug "Compiling plugin..."

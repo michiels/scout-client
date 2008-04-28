@@ -1,3 +1,8 @@
+== 1.1.6
+
+* Introducing a delta for the plugin run interval, now allowing runs even if
+  they are up to 30 seconds early
+
 == 1.1.5
 
 * A more robust solution for plugin removal
