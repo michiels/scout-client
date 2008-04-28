@@ -139,11 +139,19 @@ if [:client_key, :plugin].all? { |o| options[o].nil? } and
     puts <<-END_SUCCESS.gsub(/^ {4}/, "")
     
     Success!
-  
-    ******* NOW, INSTALL IN CRONTAB *******
-  
-    */10 * * * *  #{USER} #{File.expand_path($PROGRAM_NAME)} #{options[:client_key]}
     
+    Now, you must setup Scout to run on a scheduled basis.
+  
+    If you are using the system crontab (usually located at /etc/crontab):
+  
+    ****** START CRONTAB SAMPLE ******
+    */30 * * * *  #{USER} #{File.expand_path($PROGRAM_NAME)} #{options[:client_key]}
+    ******* END CRONTAB SAMPLE *******
+    
+    If you are using this current user's crontab (using crontab -e to edit):
+  
+    ****** START CRONTAB SAMPLE ******
+    */30 * * * *  #{File.expand_path($PROGRAM_NAME)} #{options[:client_key]}
     ******* END CRONTAB SAMPLE *******
     
     For help setting up Scout with crontab, please visit:
