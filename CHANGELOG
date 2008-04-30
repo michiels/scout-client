@@ -3,6 +3,7 @@
 * Reworked scout executable to work off an underlying command structure, similar
   to Subversion (a bare call and a call with just the key are supported for
   backward compatibility)
+* Added various helper functions to Scout::Plugin to ease development
 
 == 1.1.8
 

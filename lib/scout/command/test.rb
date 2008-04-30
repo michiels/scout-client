@@ -10,8 +10,8 @@ module Scout
         
         # read the plugin_code from the file specified
         plugin_code    = File.read(plugin)
-        plugin_options = if options.to_s[0..0] == "{"
-          eval(options[:plugin_options])  # options from command-line
+        plugin_options = if options.to_s[0, 1] == "{"
+          eval(options)  # options from command-line
         elsif options
           # 
           # read the plugin_options from the YAML file specified,
