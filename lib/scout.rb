@@ -1,8 +1,9 @@
 #!/usr/bin/env ruby -wKU
 
+require "scout/command"
 require "scout/plugin"
 require "scout/server"
 
 module Scout
-  VERSION = "1.1.8".freeze
+  VERSION = "2.0.0".freeze
 end

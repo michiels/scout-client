@@ -132,3 +132,8 @@ task :upload_docs => [:rdoc] do
 
   sh %{rsync -av --delete #{local_dir}/ #{host}:#{remote_dir}}
 end
+
+desc "Add new files to Subersion"
+task :svn_add do
+   system "svn status | grep '^\?' | sed -e 's/? *//' | sed -e 's/ /\ /g' | xargs svn add"
+end
