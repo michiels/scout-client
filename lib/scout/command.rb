@@ -6,8 +6,20 @@ require "fileutils"
 
 module Scout
   class Command
+    def self.user
+      @user ||= ENV["USER"] || ENV["USERNAME"] || "root"
+    end
+    
     def self.program_name
       @program_name ||= File.basename($PROGRAM_NAME)
+    end
+
+    def self.program_path
+      @program_path ||= File.expand_path($PROGRAM_NAME)
+    end
+    
+    def self.usage
+      @usage
     end
 
     def self.parse_options(argv)
@@ -23,9 +35,13 @@ module Scout
         opts.separator "  Install:"
         opts.separator "    #{program_name}"
         opts.separator "    ... OR ..."
-        opts.separator "    #{program_name} install"
+        opts.separator "    #{program_name} [OPTIONS] install"
         opts.separator "  Local plugin testing:"
-        opts.separator "    #{program_name} test PATH_TO_PLUGIN [OPTIONS]"
+        opts.separator "    #{program_name} [OPTIONS] test " +
+                       "PATH_TO_PLUGIN [PLUGIN_OPTIONS]"
+        opts.separator "  Clone a client setup:"
+        opts.separator "    #{program_name} [OPTIONS] clone " +
+                       "CLIENT_KEY NEW_CLIENT_NAME"
         opts.separator ""
         opts.separator "CLIENT_KEY is the indentification key assigned to"
         opts.separator "this client by the server."
@@ -33,9 +49,12 @@ module Scout
         opts.separator "PATH_TO_PLUGN is the file system path to a Ruby file"
         opts.separator "that contains a Scout plugin."
         opts.separator ""
-        opts.separator "OPTIONS can be the code for a Ruby Hash or the path"
-        opts.separator "to a YAML options file containing defaults.  These"
+        opts.separator "PLUGIN_OPTIONS can be the code for a Ruby Hash or the"
+        opts.separator "path to a YAML options file containing defaults.  These"
         opts.separator "options will be used for the plugin run."
+        opts.separator ""
+        opts.separator "NEW_CLIENT_NAME is name you wish to use for the new"
+        opts.separator "client the server creates."
         opts.separator ""
         opts.separator "Note: This client is meant to be installed and"
         opts.separator "invoked through cron or any other scheduler."
@@ -73,9 +92,7 @@ module Scout
 
         begin
           opts.parse!
-          raise "TTY required for install" if ( ARGV.empty?               or
-                                                ARGV.first == "install" ) and
-                                              not $stdin.tty?
+          @usage = opts.to_s
         rescue
           puts opts
           exit
@@ -140,6 +157,22 @@ module Scout
     
     def level
       Logger.const_get(@level.upcase) rescue Logger::INFO
+    end
+    
+    def user
+      @user ||= Command.user
+    end
+    
+    def program_name
+      @program_name ||= Command.program_name
+    end
+
+    def program_path
+      @program_path ||= Command.program_path
+    end
+    
+    def usage
+      @usage ||= Command.usage
     end
     
     def create_pid_file_or_exit

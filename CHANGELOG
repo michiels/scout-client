@@ -4,6 +4,7 @@
   to Subversion (a bare call and a call with just the key are supported for
   backward compatibility)
 * Added various helper functions to Scout::Plugin to ease development
+* Added a client clone command for instant setups
 
 == 1.1.8
 

@@ -3,11 +3,9 @@
 module Scout
   class Command
     class Install < Command
-      def user
-        @user ||= ENV["USER"] || ENV["USERNAME"] || "root"
-      end
-      
       def run
+        abort usage unless $stdin.tty?
+        
         puts <<-END_INTRO.gsub(/^ {8}/, "")
         === Scout Installation Wizard ===
 
@@ -58,10 +56,6 @@ module Scout
 
           END_ERROR
         end
-      end
-      
-      def program_path
-        @program_path ||= File.expand_path($PROGRAM_NAME)
       end
     end
   end

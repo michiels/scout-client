@@ -14,7 +14,8 @@ module Scout
     URLS = { :plan   => "/clients/CLIENT_KEY/plugins.scout?version=CLIENT_VERSION",
              :report => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/reports.scout?version=CLIENT_VERSION",
              :error  => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/errors.scout?version=CLIENT_VERSION",
-             :alert  => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/alerts.scout?version=CLIENT_VERSION" }
+             :alert  => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/alerts.scout?version=CLIENT_VERSION",
+             :clone  => "/clients/CLIENT_KEY/clone_from?version=CLIENT_VERSION" }
 
     # 
     # A plugin cannot take more than PLUGIN_TIMEOUT seconds to execute, 
@@ -221,6 +222,23 @@ module Scout
            "Unable to log error on server.",
             :error => data.merge(:plugin_id => plugin_id)
       info "Error sent."
+    end
+    
+    def clone_client(new_name, success_output)
+      url = urlify(:clone)
+      debug "Sending clone request to #{url}..."
+      post( url,
+            "Unable to send clone request to server.",
+            "client[name]" => new_name ) do |response|
+        case server_reply = response.body
+        when /\AError:/i
+          fatal "Clone error."
+          abort server_reply
+        else
+          info "Client cloned."
+          puts success_output.gsub(/\bCLIENT_KEY\b/, server_reply.strip)
+        end
+      end
     end
     
     private
