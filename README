@@ -4,7 +4,7 @@ Scout by Highgroove Studios
 
 == Description
 
-A Monitoring and Reporting Tool a Developer can Understand.
+The easier way to monitor servers and web applications.
 
 Scout makes monitoring and reporting on your web applications as flexible 
 and simple as possible.
@@ -16,7 +16,7 @@ for more information.
 
 After installing the scout gem:
 
-  $ sudo gem install scout --source http://gems.scoutapp.com
+  $ sudo gem install scout
 
 Simply run:
 
@@ -24,11 +24,53 @@ Simply run:
 
 to run the installation wizard.  You'll need your Client Key to continue.
 
+== Running the Scout Client
+
+The Scout client has several modes of operation and commands.  The normal, intended usage is through a scheduled interval with no output.
+
+Normal checkin with server:
+  $ scout [OPTIONS] CLIENT_KEY
+  ... OR ...
+  $ scout [OPTIONS] run CLIENT_KEY
+
+Install:
+  $ scout
+  ... OR ...
+  $ scout [OPTIONS] install
+
+Local plugin testing:
+  $ scout [OPTIONS] test PATH_TO_PLUGIN [PLUGIN_OPTIONS]
+
+Clone a client setup:
+  $ scout [OPTIONS] clone CLIENT_KEY NEW_CLIENT_NAME
+
+CLIENT_KEY is the indentification key assigned to
+this client by the server.
+
+PATH_TO_PLUGIN is the file system path to a Ruby file
+that contains a Scout plugin.
+
+PLUGIN_OPTIONS can be the code for a Ruby Hash or the
+path to a YAML options file containing defaults.  These
+options will be used for the plugin run.
+
+NEW_CLIENT_NAME is name you wish to use for the new
+client the server creates.
+
+
+== Cloning a Client
+
+The Scout gem can clone an existing client to automate the process of setting up additional clients.
+
+An example usage, running:
+
+ server1 $ scout clone CLIENT_KEY 'My New Client'
+
+Will create a new client called 'My New Client' on the Scout server with the same plugins as an already existing client (with the CLIENT_KEY specified).  It will also return the new system crontab line:
+
+  */30 * * * *  deploy /usr/bin/scout NEW_CLIENT_KEY
 
 
 
 
-== Further Development / Test Suite
-
-To test, you will need a valid Scout Server, client key, and plugin id.  See 
-the test/scout_test.rb file for more details.
+For additional help, please visit http://scoutapp.com

@@ -46,7 +46,7 @@ module Scout
         opts.separator "CLIENT_KEY is the indentification key assigned to"
         opts.separator "this client by the server."
         opts.separator ""
-        opts.separator "PATH_TO_PLUGN is the file system path to a Ruby file"
+        opts.separator "PATH_TO_PLUGIN is the file system path to a Ruby file"
         opts.separator "that contains a Scout plugin."
         opts.separator ""
         opts.separator "PLUGIN_OPTIONS can be the code for a Ruby Hash or the"

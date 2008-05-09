@@ -133,6 +133,23 @@ task :upload_docs => [:rdoc] do
   sh %{rsync -av --delete #{local_dir}/ #{host}:#{remote_dir}}
 end
 
+desc "Publish Beta Gem to Scout Gem Server"
+task :publish_beta_scout => [:package] do
+
+  puts "Publishing on Scout Server"
+	sh "scp -r pkg/*.gem " +
+	   "deploy@gems.scoutapp.com:/var/www/beta-gems/gems"
+	ssh = Net::SSH.start('gems.scoutapp.com','deploy')
+	ssh_shell = ssh.shell.sync
+	ssh_out = ssh_shell.send_command "/usr/bin/gem generate_index -d /var/www/beta-gems"
+  puts "Published, and updated gem server." if ssh_out.stdout.empty? && !ssh_out.stderr
+
+	sh "scp -r doc/html/* " +
+	   "deploy@gems.scoutapp.com:/var/www/beta-gems/docs"
+
+end
+
+
 desc "Add new files to Subersion"
 task :svn_add do
    system "svn status | grep '^\?' | sed -e 's/? *//' | sed -e 's/ /\ /g' | xargs svn add"
