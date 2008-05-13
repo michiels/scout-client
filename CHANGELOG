@@ -1,3 +1,8 @@
+== 2.0.1
+
+* Added some safety code to ensure SystemExit exceptions are not caught in our
+  rescue clauses
+
 == 2.0.0
 
 * Reworked scout executable to work off an underlying command structure, similar

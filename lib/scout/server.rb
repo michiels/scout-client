@@ -97,6 +97,7 @@ module Scout
           eval(plugin[:code], TOPLEVEL_BINDING, plugin[:path] || plugin[:name])
           info "Plugin compiled."
         rescue Exception
+          raise if $!.is_a? SystemExit
           error "Plugin would not compile: #{$!.message}"
           return
         end
@@ -114,6 +115,7 @@ module Scout
             error "Plugin took too long to run."
             return
           rescue Exception
+            raise if $!.is_a? SystemExit
             error "Plugin failed to run: #{$!.backtrace}"
           end
           info "Plugin completed its run."
@@ -152,6 +154,7 @@ module Scout
           Plugin.last_defined = nil
           info "Plugin Removed."
         rescue
+          raise if $!.is_a? SystemExit
           error "Unable to remove plugin."
         end
       end
@@ -296,6 +299,7 @@ module Scout
       fatal "Request timed out."
       exit
     rescue Exception
+      raise if $!.is_a? SystemExit
       fatal "An HTTP error occurred:  #{$!.message}"
       exit
     end
