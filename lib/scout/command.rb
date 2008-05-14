@@ -185,7 +185,7 @@ module Scout
           begin
             File.unlink(pid_file)
           rescue
-            log.error "Unable to unlink pid file:  #{$!.message}"
+            log.error "Unable to unlink pid file:  #{$!.message}" if log
           end
         end
       rescue
@@ -199,10 +199,10 @@ module Scout
           # do nothing, we didn't have permission to check the running process
         end
         if running
-          log.warn "Process #{pid} was already running"
+          log.warn "Process #{pid} was already running" if log
           exit
         else
-          log.info "Stale PID file found.  Clearing it and reloading..."
+          log.info "Stale PID file found.  Clearing it and reloading..." if log
           File.unlink(pid_file) rescue nil
           retry
         end
