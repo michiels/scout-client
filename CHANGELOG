@@ -1,3 +1,9 @@
+== 2.0.3
+
+* Added documentation for Scout#data_for_server method for new plugin creation
+* Added Version option for printing the current version
+* Removed a spurious "puts" debug statement
+
 == 2.0.2
 
 * Fixed the logging bug I introduced by moving the PID check into the Command

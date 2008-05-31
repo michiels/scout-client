@@ -89,6 +89,12 @@ module Scout
                  "Turn on logging to STDOUT" ) do |bool|
           options[:verbose] = bool
         end
+        
+        opts.on( "-V", "--version",
+                 "Display the current version") do |version|
+          puts Scout::VERSION
+          exit
+        end
 
         begin
           opts.parse!

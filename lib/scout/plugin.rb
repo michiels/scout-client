@@ -25,15 +25,11 @@ module Scout
       @options[name] ||
       @options[name.is_a?(String) ? name.to_sym : String(name)]
     end
-    
-    def data_for_server
-      @data_for_server ||= { :reports => [ ],
-                             :alerts  => [ ],
-                             :errors  => [ ],
-                             :memory  => { } }
-    end
-    
+
+    # Builds the data to send to the server.
     #
+    # We programatically define several helper methods for creating this data.
+    # 
     # Usage:
     # 
     #   reports << {:data => "here"}
@@ -51,7 +47,14 @@ module Scout
     #   error(:subject => "subject", :body => "body")
     #   add_error("subject", "body")
     #   add_error(:subject => "subject", :body => "body")
-    # 
+    #     
+    def data_for_server
+      @data_for_server ||= { :reports => [ ],
+                             :alerts  => [ ],
+                             :errors  => [ ],
+                             :memory  => { } }
+    end
+    
     %w[report alert error].each do |kind|
       class_eval <<-END
         def #{kind}s
@@ -84,7 +87,6 @@ module Scout
       if name.nil?
         data_for_server[:memory]
       else
-        p "here"
         @memory[name] ||
         @memory[name.is_a?(String) ? name.to_sym : String(name)]
       end
