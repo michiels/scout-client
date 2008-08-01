@@ -1,3 +1,11 @@
+== 2.0.5
+
+* Another Version bump to update gem servers
+
+== 2.0.4
+
+* Version bump to update gem servers
+
 == 2.0.3
 
 * Added documentation for Scout#data_for_server method for new plugin creation

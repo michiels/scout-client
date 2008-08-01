@@ -103,7 +103,9 @@ task :publish_rubyforge => [:package] do
 
   puts "Publishing on RubyForge"
   rf = RubyForge.new
+  rf.configure
   puts "Logging in"
+  puts rf.inspect
   rf.login
 
   c = rf.userconfig
