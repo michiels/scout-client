@@ -12,6 +12,26 @@ module Scout
       def load(last_run, memory, options)
         new(last_run, memory, options)
       end
+      
+      # 
+      # You can use this method to indicate one or more libraries your plugin
+      # requires:
+      # 
+      #   class MyNeedyPlugin < Scout::Plugin
+      #     needs "faster_csv", "elif"
+      #     # ...
+      #   end
+      # 
+      # Your build_report() method will not be called if all libraries cannot
+      # be loaded.  RubyGems will be loaded if needed to find the libraries.
+      # 
+      def needs(*libraries)
+        if libraries.empty?
+          @needs ||= [ ]
+        else
+          needs.push(*libraries.flatten)
+        end
+      end
     end
 
     # Creates a new Scout Plugin to run.
@@ -114,8 +134,31 @@ module Scout
     # automatically be returned as the end result of the run.
     # 
     def run
-      build_report
+      build_report if self.class.needs.all? { |l| library_available?(l) }
       data_for_server
+    end
+    
+    private
+    
+    #
+    # Returns true is a library can be loaded.  A bare require is made as the
+    # first attempt.  If that fails, RubyGems is loaded and another attempt is
+    # made.  If the library cannot be loaded either way, an error() is generated
+    # and build_report() will not be called.
+    # 
+    def library_available?(library)
+      begin
+        require library
+      rescue LoadError
+        begin
+          require "rubygems"
+          require library
+        rescue LoadError
+          error("Failed to load library", "Could not load #{library}")
+          return false
+        end
+      end
+      true
     end
   end
 end
