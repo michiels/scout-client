@@ -1,6 +1,7 @@
 == 2.0.6
 
 * Adding plugin dependency support via the new needs() class method
+* Improved Scout error backtraces (patch from dougbarth)
 
 == 2.0.5
 

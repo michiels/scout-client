@@ -116,7 +116,7 @@ module Scout
             return
           rescue Exception
             raise if $!.is_a? SystemExit
-            error "Plugin failed to run: #{$!.backtrace}"
+            error "Plugin failed to run: #{$!.class}: #{$!}\n#{$!.backtrace.join("\n")}"
           end
           info "Plugin completed its run."
           
