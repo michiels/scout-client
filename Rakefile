@@ -86,10 +86,12 @@ task :publish_scout => [:package] do
   puts "Publishing on Scout Server"
 	sh "scp -r pkg/*.gem " +
 	   "deploy@gems.scoutapp.com:/var/www/gems/gems"
-	ssh = Net::SSH.start('gems.scoutapp.com','deploy')
-	ssh_shell = ssh.shell.sync
-	ssh_out = ssh_shell.send_command "/usr/bin/gem generate_index -d /var/www/gems"
-  puts "Published, and updated gem server." if ssh_out.stdout.empty? && !ssh_out.stderr
+	ssh_out = ""
+	Net::SSH.start('gems.scoutapp.com','deploy') do |session|
+	  ssh_out = session.exec!("/usr/bin/gem generate_index -d /var/www/gems").to_s.chomp
+  end
+  puts ssh_out
+  puts "Published, and updated gem server."
 end
 
 desc "Publishes Gem to Rubyforge"
@@ -141,16 +143,17 @@ task :publish_beta_scout => [:package] do
   puts "Publishing on Scout Server"
 	sh "scp -r pkg/*.gem " +
 	   "deploy@gems.scoutapp.com:/var/www/beta-gems/gems"
-	ssh = Net::SSH.start('gems.scoutapp.com','deploy')
-	ssh_shell = ssh.shell.sync
-	ssh_out = ssh_shell.send_command "/usr/bin/gem generate_index -d /var/www/beta-gems"
-  puts "Published, and updated gem server." if ssh_out.stdout.empty? && !ssh_out.stderr
+	ssh_out = ""
+	Net::SSH.start('gems.scoutapp.com','deploy') do |session|
+	  ssh_out = session.exec!("/usr/bin/gem generate_index -d /var/www/gems").to_s.chomp
+  end
+  puts ssh_out
+  puts "Published, and updated gem server."
 
 	sh "scp -r doc/html/* " +
 	   "deploy@gems.scoutapp.com:/var/www/beta-gems/docs"
 
 end
-
 
 desc "Add new files to Subersion"
 task :svn_add do
