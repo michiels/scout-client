@@ -205,7 +205,13 @@ module Scout
           # do nothing, we didn't have permission to check the running process
         end
         if running
-          log.warn "Process #{pid} was already running" if log
+          if pid == "unknown"
+            log.warn "Could not create or read PID file.  "                +
+                     "You may need to the path to the config directory.  " +
+                     "See:  http://scoutapp.com/help#data_file" if log
+          else
+            log.warn "Process #{pid} was already running" if log
+          end
           exit
         else
           log.info "Stale PID file found.  Clearing it and reloading..." if log
