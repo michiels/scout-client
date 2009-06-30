@@ -1,6 +1,7 @@
 == 2.0.7
 
 * Improved PID file error messages
+* Adding a redundant Timeout to work around Net::HTTP hangs
 
 == 2.0.6
 

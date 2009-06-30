@@ -9,6 +9,8 @@ module Scout
   class Server
     # A new class for plugin Timeout errors.
     class PluginTimeoutError < RuntimeError; end
+    # A new class for API Timeout errors.
+    class APITimeoutError < RuntimeError; end
     
     # The default URLS are used to communicate with the Scout Server.
     URLS = { :plan   => "/clients/CLIENT_KEY/plugins.scout?version=CLIENT_VERSION",
@@ -171,6 +173,7 @@ module Scout
       get(url, "Could not retrieve plan from server.") do |res|
         begin
           plugin_execution_plan = Marshal.load(res.body)
+          # pp plugin_execution_plan
           info "Plan loaded.  (#{plugin_execution_plan.size} plugins:  " +
                "#{plugin_execution_plan.map { |p| p[:name] }.join(', ')})"
         rescue TypeError
@@ -283,12 +286,16 @@ module Scout
     end
     
     def request(url, response_handler, error, &connector)
-      http             = Net::HTTP.new(url.host, url.port)
-      if url.is_a? URI::HTTPS
-        http.use_ssl     = true
-        http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+      response           = nil
+      Timeout.timeout(5 * 60, APITimeoutError) do
+        http               = Net::HTTP.new(url.host, url.port)
+        if url.is_a? URI::HTTPS
+          http.use_ssl     = true
+          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+        end
+        response           = no_warnings { http.start(&connector) }
       end
-      case response    = no_warnings { http.start(&connector) }
+      case response
       when Net::HTTPSuccess
         response_handler[response] unless response_handler.nil?
       else
