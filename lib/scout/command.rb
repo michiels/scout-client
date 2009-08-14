@@ -199,6 +199,15 @@ module Scout
         running = true
         begin
           Process.kill(0, pid)
+          if stat = File.stat(pid_file)
+            if mtime = stat.mtime
+              if Time.now - mtime > 25 * 60  # assume process is hung after 25m
+                log.info "Trying to KILL an old process..." if log
+                Process.kill("KILL", pid)
+                running = false
+              end
+            end
+          end
         rescue Errno::ESRCH
           running = false
         rescue

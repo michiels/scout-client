@@ -1,3 +1,16 @@
+== 4.0.0
+
+* Switched to the new API URL's
+* Converted to JSON (using the vendored json_pure) from Marshal
+* Upgraded to the data protocol used by the scout_agent
+* Added SSL certificate verification to increase security
+* Honor Last-Modified headers from the server to improve efficiency
+* Added support for individual plugin timeouts
+* Inserted a KILL signal for old processes to keep things running
+* Removing obsolete clone action
+* Removed non-functional test code
+* Cleaned up Rake tasks for development
+
 == 2.0.7
 
 * Improved PID file error messages

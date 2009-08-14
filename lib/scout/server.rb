@@ -4,6 +4,11 @@ require "net/https"
 require "uri"
 require "yaml"
 require "timeout"
+require "stringio"
+require "zlib"
+
+$LOAD_PATH << File.join(File.dirname(__FILE__), *%w[.. .. vendor json_pure lib])
+require "json"
 
 module Scout
   class Server
@@ -12,18 +17,16 @@ module Scout
     # A new class for API Timeout errors.
     class APITimeoutError < RuntimeError; end
     
-    # The default URLS are used to communicate with the Scout Server.
-    URLS = { :plan   => "/clients/CLIENT_KEY/plugins.scout?version=CLIENT_VERSION",
-             :report => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/reports.scout?version=CLIENT_VERSION",
-             :error  => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/errors.scout?version=CLIENT_VERSION",
-             :alert  => "/clients/CLIENT_KEY/plugins/PLUGIN_ID/alerts.scout?version=CLIENT_VERSION",
-             :clone  => "/clients/CLIENT_KEY/clone_from?version=CLIENT_VERSION" }
-
+    # Headers passed up with all API requests.
+    HTTP_HEADERS = { "CLIENT_VERSION"  => Scout::VERSION,
+                     "ACCEPT_ENCODING" => "gzip" }
+    
     # 
-    # A plugin cannot take more than PLUGIN_TIMEOUT seconds to execute, 
-    # otherwise, a timeout error is generated.
+    # A plugin cannot take more than DEFAULT_PLUGIN_TIMEOUT seconds to execute, 
+    # otherwise, a timeout error is generated.  This can be overriden by
+    # individual plugins.
     # 
-    PLUGIN_TIMEOUT = 60
+    DEFAULT_PLUGIN_TIMEOUT = 60
     #
     # A fuzzy range of seconds in which it is okay to rerun a plugin.
     # We consider the interval close enough at this point.
@@ -72,7 +75,9 @@ module Scout
     # Runs all plugins from a given plan. Calls process_plugin on each plugin.
     def run_plugins_by_plan
       plan do |plugin|
+        prepare_checkin
         process_plugin(plugin)
+        checkin
       end
     end
     
@@ -86,17 +91,20 @@ module Scout
     # set memory and last_run information in the history file.
     # 
     def process_plugin(plugin)
-      info "Processing the #{plugin[:name]} plugin:"
-      last_run = @history["last_runs"][plugin[:name]]
-      memory   = @history["memory"][plugin[:name]]
+      info "Processing the #{plugin['name']} plugin:"
+      last_run = @history["last_runs"][plugin['name']]
+      memory   = @history["memory"][plugin['name']]
       run_time = Time.now
-      delta    = last_run.nil? ? nil : run_time - (last_run + plugin[:interval])
+      delta    = last_run.nil? ? nil :
+                                 run_time - (last_run + plugin['interval'])
       if last_run.nil? or delta.between?(-RUN_DELTA, 0) or delta >= 0
         debug "Plugin is past interval and needs to be run.  " +
               "(last run:  #{last_run || 'nil'})"
         debug "Compiling plugin..."
         begin
-          eval(plugin[:code], TOPLEVEL_BINDING, plugin[:path] || plugin[:name])
+          eval( plugin['code'],
+                TOPLEVEL_BINDING,
+                plugin['path'] || plugin['name'] )
           info "Plugin compiled."
         rescue Exception
           raise if $!.is_a? SystemExit
@@ -105,12 +113,14 @@ module Scout
         end
         debug "Loading plugin..."
         if job = Plugin.last_defined.load( last_run, (memory || Hash.new),
-                                           plugin[:options] || Hash.new )
+                                           plugin['options'] || Hash.new )
           info "Plugin loaded."
           debug "Running plugin..."
           begin
-            data = {}
-            Timeout.timeout(PLUGIN_TIMEOUT, PluginTimeoutError) do
+            data    = {}
+            timeout = plugin['timeout'].to_i
+            timeout = DEFAULT_PLUGIN_TIMEOUT unless timeout > 0
+            Timeout.timeout(timeout, PluginTimeoutError) do
               data = job.run
             end
           rescue Timeout::Error
@@ -118,30 +128,25 @@ module Scout
             return
           rescue Exception
             raise if $!.is_a? SystemExit
-            error "Plugin failed to run: #{$!.class}: #{$!}\n#{$!.backtrace.join("\n")}"
+            error "Plugin failed to run: #{$!.class}: #{$!.message}\n" +
+                  "#{$!.backtrace.join("\n")}"
           end
           info "Plugin completed its run."
           
-          # handle single report or array of reports
-          send_report(data[:report], plugin[:plugin_id])   if data[:report]
-          if data[:reports] and not data[:reports].empty?
-            data[:reports].each { |r| send_report(r, plugin[:plugin_id]) }
-          end          
-          # handle single alert or array of alerts
-          send_alert(data[:alert], plugin[:plugin_id])   if data[:alert]
-          if data[:alerts] and not data[:alerts].empty?
-            data[:alerts].each { |a| send_alert(a, plugin[:plugin_id]) }
-          end
-          # handle single error or array of errors
-          send_error(data[:error], plugin[:plugin_id]) if data[:error]
-          if data[:errors] and not data[:errors].empty?
-            data[:errors].each { |e| send_error(e, plugin[:plugin_id]) }
+          %w[report alert error].each do |type|
+            plural = "#{type}s".to_sym
+            (Array(data[type.to_sym]) + Array(data[plural])).each do |fields|
+              @checkin[plural] << build_report(plugin['id'], fields)
+            end
           end
           
-          @history["last_runs"][plugin[:name]] = run_time
-          @history["memory"][plugin[:name]]    = data[:memory]
+          @history["last_runs"][plugin['name']] = run_time
+          @history["memory"][plugin['name']]    = data[:memory]
         else
-          scout_error({:subject => "Plugin would not load."}, plugin[:plugin_id])
+          @checkin[:errors] << build_report(
+            plugin_id['id'],
+            :subject => "Plugin would not load."
+          )
         end
       else
         debug "Plugin does not need to be run at this time.  " +
@@ -160,7 +165,7 @@ module Scout
           error "Unable to remove plugin."
         end
       end
-      info "Plugin #{plugin[:name]} processing complete."
+      info "Plugin #{plugin['name']} processing complete."
     end
     
     # 
@@ -170,118 +175,80 @@ module Scout
     def plan
       url = urlify(:plan)
       info "Loading plan from #{url}..."
-      get(url, "Could not retrieve plan from server.") do |res|
-        begin
-          plugin_execution_plan = Marshal.load(res.body)
-          # pp plugin_execution_plan
-          info "Plan loaded.  (#{plugin_execution_plan.size} plugins:  " +
-               "#{plugin_execution_plan.map { |p| p[:name] }.join(', ')})"
-        rescue TypeError
-          fatal "Plan from server was malformed."
-          exit
+      headers = Hash.new
+      if @history["last_modified_for_plugins"] and @history["old_plugins"]
+        headers["If-Modified-Since"] = @history["last_modified_for_plugins"]
+      end
+      get(url, "Could not retrieve plan from server.", headers) do |res|
+        if res.is_a? Net::HTTPNotModified
+          info "Plan not modified.  Reusing saved plan."
+          plugin_execution_plan = Array(@history["old_plugins"])
+        else
+          begin
+            body = res.body
+            if res["Content-Encoding"] == "gzip" and body and not body.empty?
+              body = Zlib::GzipReader.new(StringIO.new(body)).read
+            end
+            plugin_execution_plan = Array(JSON.parse(body)["plugins"])
+            if res["Last-Modified"]
+              @history["last_modified_for_plugins"] = res["last-modified"]
+              @history["old_plugins"]               = plugin_execution_plan
+            end
+            info "Plan loaded.  (#{plugin_execution_plan.size} plugins:  " +
+                 "#{plugin_execution_plan.map { |p| p['name'] }.join(', ')})"
+          rescue Exception
+            fatal "Plan from server was malformed."
+            exit
+          end
         end
         plugin_execution_plan.each do |plugin|
           begin
             yield plugin if block_given?
           rescue RuntimeError
-            scout_error( { :subject => "Exception:  #{$!.message}.",
-                     :body    => $!.backtrace },
-                   plugin[:plugin_id] )
+            @checkin[:errors] << build_report(
+              plugin_id['id'],
+              :subject => "Exception:  #{$!.message}.",
+              :body    => $!.backtrace
+            )
           end
         end
       end
     end
     alias_method :test, :plan
-
-    # Sends report data to the Scout Server.
-    def send_report(data, plugin_id)
-      url = urlify(:report, :plugin_id => plugin_id)
-      report_hash = {:data => data, :plugin_id => plugin_id}
-      
-      # add in any special fields
-      if time = ( data.delete(:scout_time) || data.delete("scout_time") )
-        report_hash[:time] = time
-      end
-      
-      debug "Sending report to #{url} (#{data.inspect})..."
-      post url,
-           "Unable to send report to server.",
-           :report => report_hash
-      info "Report sent."
-    end
-
-    # Sends an alert to the Scout Server.
-    def send_alert(data, plugin_id)
-      url = urlify(:alert, :plugin_id => plugin_id)
-      debug "Sending alert to #{url} (subject: #{data[:subject]})..."
-      post url,
-           "Unable to send alert to server.",
-           :alert => data.merge(:plugin_id => plugin_id)
-      info "Alert sent."
-    end
-
-    # Sends an error to the Scout Server.
-    def send_error(data, plugin_id)
-      url = urlify(:error, :plugin_id => plugin_id)
-      debug "Sending error to #{url} (subject: #{data[:subject]})..."
-      post url,
-           "Unable to log error on server.",
-            :error => data.merge(:plugin_id => plugin_id)
-      info "Error sent."
-    end
-    
-    def clone_client(new_name, success_output)
-      url = urlify(:clone)
-      debug "Sending clone request to #{url}..."
-      post( url,
-            "Unable to send clone request to server.",
-            "client[name]" => new_name ) do |response|
-        case server_reply = response.body
-        when /\AError:/i
-          fatal "Clone error."
-          abort server_reply
-        else
-          info "Client cloned."
-          puts success_output.gsub(/\bCLIENT_KEY\b/, server_reply.strip)
-        end
-      end
-    end
     
     private
+    
+    def build_report(plugin_id, fields)
+      { :plugin_id  => plugin_id,
+        :created_at => Time.now.utc.strftime("%Y-%m-%d %H:%M:%S"),
+        :fields     => fields }
+    end
 
     def urlify(url_name, options = Hash.new)
       return unless @server
       options.merge!(:client_version => Scout::VERSION)
       URI.join( @server,
-                URLS[url_name].
+                "/clients/CLIENT_KEY/#{url_name}.scout".
                   gsub(/\bCLIENT_KEY\b/, @client_key).
                   gsub(/\b[A-Z_]+\b/) { |k| options[k.downcase.to_sym] || k } )
     end
-
-    def paramify(params, prefix = nil)
-      params.inject(Hash.new) do |all, (key, value)|
-        parent = prefix ? "#{prefix}[#{key}]" : String(key)
-        if value.is_a? Hash
-          all.merge(paramify(value, parent))
-        else
-          all.merge(parent => String(value))
-        end
-      end
-    end
     
-    def post(url, error, params = {}, &response_handler)
+    def post(url, error, body, headers = Hash.new, &response_handler)
       return unless url
       request(url, response_handler, error) do |connection|
-        post = Net::HTTP::Post.new(url.path + (url.query ? ('?' + url.query) : ''))
-        post.set_form_data(paramify(params))
+        post = Net::HTTP::Post.new( url.path +
+                                    (url.query ? ('?' + url.query) : ''),
+                                    HTTP_HEADERS.merge(headers) )
+        post.body = body
         connection.request(post)
       end
     end
 
-    def get(url, error, params = {}, &response_handler)
+    def get(url, error, headers = Hash.new, &response_handler)
       return unless url
       request(url, response_handler, error) do |connection|
-        connection.get(url.path + (url.query ? ('?' + url.query) : ''))
+        connection.get( url.path + (url.query ? ('?' + url.query) : ''),
+                        HTTP_HEADERS.merge(headers) )
       end
     end
     
@@ -291,12 +258,15 @@ module Scout
         http               = Net::HTTP.new(url.host, url.port)
         if url.is_a? URI::HTTPS
           http.use_ssl     = true
-          http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+          http.ca_file     = File.join( File.dirname(__FILE__),
+                                        *%w[.. .. data cacert.pem] )
+          http.verify_mode = OpenSSL::SSL::VERIFY_PEER |
+                             OpenSSL::SSL::VERIFY_FAIL_IF_NO_PEER_CERT
         end
         response           = no_warnings { http.start(&connector) }
       end
       case response
-      when Net::HTTPSuccess
+      when Net::HTTPSuccess, Net::HTTPNotModified
         response_handler[response] unless response_handler.nil?
       else
         fatal error
@@ -310,6 +280,27 @@ module Scout
       fatal "An HTTP error occurred:  #{$!.message}"
       exit
     end
+    
+    def prepare_checkin
+      @checkin = { :reports => Array.new,
+                   :alerts  => Array.new,
+                   :errors  => Array.new }
+    end
+    
+    def checkin
+      io   =  StringIO.new
+      gzip =  Zlib::GzipWriter.new(io)
+      gzip << @checkin.to_json
+      gzip.close
+      post( urlify(:checkin),
+            "Unable to check in with the server.",
+            io.string,
+            "Content-Type"     => "application/json",
+            "CONTENT_ENCODING" => "gzip" )
+    rescue Exception
+      error "Unable to check in with the server."
+    end
+    
     
     def no_warnings
       old_verbose = $VERBOSE
