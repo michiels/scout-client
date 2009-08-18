@@ -6,6 +6,7 @@ require "yaml"
 require "timeout"
 require "stringio"
 require "zlib"
+require "socket"
 
 $LOAD_PATH << File.join(File.dirname(__FILE__), *%w[.. .. vendor json_pure lib])
 require "json"
@@ -19,6 +20,7 @@ module Scout
     
     # Headers passed up with all API requests.
     HTTP_HEADERS = { "CLIENT_VERSION"  => Scout::VERSION,
+                     "CLIENT_HOSTNAME" => Socket.gethostname,
                      "ACCEPT_ENCODING" => "gzip" }
     
     # 
@@ -92,11 +94,14 @@ module Scout
     # 
     def process_plugin(plugin)
       info "Processing the #{plugin['name']} plugin:"
-      last_run = @history["last_runs"][plugin['name']]
-      memory   = @history["memory"][plugin['name']]
-      run_time = Time.now
-      delta    = last_run.nil? ? nil :
-                                 run_time - (last_run + plugin['interval'])
+      id_and_name = "#{plugin['id']}-#{plugin['name']}"
+      last_run    = @history["last_runs"][id_and_name] ||
+                    @history["last_runs"][plugin['name']]
+      memory      = @history["memory"][id_and_name] ||
+                    @history["memory"][plugin['name']]
+      run_time    = Time.now
+      delta       = last_run.nil? ? nil :
+                                    run_time - (last_run + plugin['interval'])
       if last_run.nil? or delta.between?(-RUN_DELTA, 0) or delta >= 0
         debug "Plugin is past interval and needs to be run.  " +
               "(last run:  #{last_run || 'nil'})"
@@ -140,8 +145,10 @@ module Scout
             end
           end
           
-          @history["last_runs"][plugin['name']] = run_time
-          @history["memory"][plugin['name']]    = data[:memory]
+          @history["last_runs"][id_and_name] = run_time
+          @history["memory"][id_and_name]    = data[:memory]
+          @history["last_runs"].delete(plugin['name'])
+          @history["memory"].delete(plugin['name'])
         else
           @checkin[:errors] << build_report(
             plugin_id['id'],

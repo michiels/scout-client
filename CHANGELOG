@@ -10,6 +10,8 @@
 * Removing obsolete clone action
 * Removed non-functional test code
 * Cleaned up Rake tasks for development
+* Started sending an HTTP_CLIENT_HOSTNAME header to the Scout server
+* Changed history file storage to be by plugin ID, instead of name
 
 == 2.0.7
 
