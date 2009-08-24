@@ -157,12 +157,10 @@ module Scout
             end
           end
           
+          @history["last_runs"].delete(plugin['name'])
+          @history["memory"].delete(plugin['name'])
           @history["last_runs"][id_and_name] = run_time
           @history["memory"][id_and_name]    = data[:memory]
-          if id_and_name != plugin['name']
-            @history["last_runs"].delete(plugin['name'])
-            @history["memory"].delete(plugin['name'])
-          end
         else
           @checkin[:errors] << build_report(
             plugin_id['id'],
