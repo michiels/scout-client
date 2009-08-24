@@ -112,8 +112,8 @@ module Scout
       memory      = @history["memory"][id_and_name] ||
                     @history["memory"][plugin['name']]
       run_time    = Time.now
-      delta       = last_run.nil? ? nil :
-                                    run_time - (last_run + plugin['interval'])
+      delta       = last_run.nil? ? nil : run_time -
+                                          (last_run + plugin['interval'] * 60)
       if last_run.nil? or delta.between?(-RUN_DELTA, 0) or delta >= 0
         debug "Plugin is past interval and needs to be run.  " +
               "(last run:  #{last_run || 'nil'})"
