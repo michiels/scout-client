@@ -69,21 +69,32 @@ module Scout
     #   add_error(:subject => "subject", :body => "body")
     #     
     def data_for_server
-      @data_for_server ||= { :reports => [ ],
-                             :alerts  => [ ],
-                             :errors  => [ ],
+      @data_for_server ||= { :reports   => [ ],
+                             :alerts    => [ ],
+                             :errors    => [ ],
+                             :summaries => [ ],
                              :memory  => { } }
     end
     
-    %w[report alert error].each do |kind|
+    %w[report alert error summary].each do |kind|
       class_eval <<-END
-        def #{kind}s
-          data_for_server[:#{kind}s]
+        if "#{kind}" == "summary"
+          def summaries
+            data_for_server[:summaries]
+          end
+        else
+          def #{kind}s
+            data_for_server[:#{kind}s]
+          end
         end
         
         if "#{kind}" == "report"
           def report(new_entry)
             reports << new_entry
+          end
+        elsif "#{kind}" == "summary"
+          def summary(new_entry)
+            summaries << new_entry
           end
         else
           def #{kind}(*fields)

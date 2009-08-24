@@ -50,6 +50,18 @@ module Scout
       end
     end
     
+    # Prepares a check-in data structure to hold Plugin generated data.
+    def prepare_checkin
+      @checkin = { :reports   => Array.new,
+                   :alerts    => Array.new,
+                   :errors    => Array.new,
+                   :summaries => Array.new }
+    end
+    
+    def show_checkin(printer = :p)
+      send(printer, @checkin)
+    end
+    
     # 
     # Loads the history file from disk. If the file does not exist, 
     # it creates one.
@@ -94,7 +106,7 @@ module Scout
     # 
     def process_plugin(plugin)
       info "Processing the #{plugin['name']} plugin:"
-      id_and_name = "#{plugin['id']}-#{plugin['name']}"
+      id_and_name = "#{plugin['id']}-#{plugin['name']}".sub(/\A-/, "")
       last_run    = @history["last_runs"][id_and_name] ||
                     @history["last_runs"][plugin['name']]
       memory      = @history["memory"][id_and_name] ||
@@ -138,8 +150,8 @@ module Scout
           end
           info "Plugin completed its run."
           
-          %w[report alert error].each do |type|
-            plural = "#{type}s".to_sym
+          %w[report alert error summary].each do |type|
+            plural = "#{type}s".sub(/ys\z/, "ies").to_sym
             (Array(data[type.to_sym]) + Array(data[plural])).each do |fields|
               @checkin[plural] << build_report(plugin['id'], fields)
             end
@@ -147,8 +159,10 @@ module Scout
           
           @history["last_runs"][id_and_name] = run_time
           @history["memory"][id_and_name]    = data[:memory]
-          @history["last_runs"].delete(plugin['name'])
-          @history["memory"].delete(plugin['name'])
+          if id_and_name != plugin['name']
+            @history["last_runs"].delete(plugin['name'])
+            @history["memory"].delete(plugin['name'])
+          end
         else
           @checkin[:errors] << build_report(
             plugin_id['id'],
@@ -286,12 +300,6 @@ module Scout
       raise if $!.is_a? SystemExit
       fatal "An HTTP error occurred:  #{$!.message}"
       exit
-    end
-    
-    def prepare_checkin
-      @checkin = { :reports => Array.new,
-                   :alerts  => Array.new,
-                   :errors  => Array.new }
     end
     
     def checkin

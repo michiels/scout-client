@@ -25,12 +25,14 @@ module Scout
         end
 
         Scout::Server.new(nil, nil, history, log) do |scout|
-          pp scout.process_plugin( :interval  => 0,
-                                   :plugin_id => 1,
-                                   :name      => "Local Plugin",
-                                   :code      => plugin_code,
-                                   :options   => plugin_options,
-                                   :path      => plugin )
+          scout.prepare_checkin
+          scout.process_plugin( 'interval'  => 0,
+                                'plugin_id' => 1,
+                                'name'      => "Local Plugin",
+                                'code'      => plugin_code,
+                                'options'   => plugin_options,
+                                'path'      => plugin )
+          scout.show_checkin(:pp)
         end  
       end
     end
