@@ -151,8 +151,13 @@ module Scout
           info "Plugin completed its run."
           
           %w[report alert error summary].each do |type|
-            plural = "#{type}s".sub(/ys\z/, "ies").to_sym
-            (Array(data[type.to_sym]) + Array(data[plural])).each do |fields|
+            plural  = "#{type}s".sub(/ys\z/, "ies").to_sym
+            reports = data[plural].is_a?(Array) ? data[plural] :
+                                                  [data[plural]].compact
+            if report = data[type.to_sym]
+              reports << report
+            end
+            reports.each do |fields|
               @checkin[plural] << build_report(plugin['id'], fields)
             end
           end

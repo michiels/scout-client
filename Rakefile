@@ -45,7 +45,7 @@ spec = Gem::Specification.new do |spec|
 	# spec.test_suite_file = "test/ts_all.rb"
 	spec.files           = Dir.glob("{bin,lib}/**/*.rb")  +
 	                       Dir.glob("{data,vendor}/**/*") +
-	                       %w[Rakefile setup.rb]
+	                       %w[Rakefile]
   spec.executables     = ["scout"]
 
 	spec.has_rdoc         = true
@@ -79,31 +79,21 @@ task :publish => [:package, :publish_rubyforge]
 
 desc "Publishes Gem to Rubyforge"
 task :publish_rubyforge => [:package] do
-  pkg = "pkg/#{spec.name}-#{version}"
-
-  if $DEBUG then
-    puts "release_id = rf.add_release #{spec.rubyforge_project.inspect}, #{spec.name.inspect}, #{spec.version.inspect}, \"#{pkg}.tgz\""
-    puts "rf.add_file #{spec.rubyforge_project.inspect}, #{spec.name.inspect}, release_id, \"#{pkg}.gem\""
-  end
-
   puts "Publishing on RubyForge"
-  rf = RubyForge.new
-  rf.configure
+  forge = RubyForge.new
+  forge.configure
   puts "Logging in"
-  puts rf.inspect
-  rf.login
+  forge.login
 
-  c = rf.userconfig
-  c["release_notes"] = spec.description if spec.description
-  c["release_changes"] = changes if changes
-  c["preformatted"] = true
+  release                    = forge.userconfig
+  release["release_changes"] = File.read(File.join(dir, "CHANGELOG"))
+  release["preformatted"]    = true
 
-  files = [(need_tar ? "#{pkg}.tgz" : nil),
-           (need_zip ? "#{pkg}.zip" : nil),
-           "#{pkg}.gem"].compact
+  package = "pkg/#{spec.name}-#{version}"
+  files   = %W[#{package}.tgz #{package}.zip #{package}.gem].compact
 
-  puts "Releasing #{spec.name} v. #{version}"
-  rf.add_release spec.rubyforge_project, spec.name, version, *files
+  puts "Releasing #{spec.name}-#{version}"
+  forge.add_release(spec.rubyforge_project, spec.name, version, *files)
 end
 
 desc "Upload current documentation to Scout Gem Server and RubyForge"
