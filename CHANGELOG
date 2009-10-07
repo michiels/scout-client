@@ -1,3 +1,8 @@
+== 4.0.2
+
+* Check-in once after all plugins are run instead of once for each plugin for
+  better efficiency
+
 == 4.0.1
 
 * Fixed a regression that broken support for some very old plugins

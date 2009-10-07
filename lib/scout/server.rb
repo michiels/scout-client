@@ -88,11 +88,11 @@ module Scout
     
     # Runs all plugins from a given plan. Calls process_plugin on each plugin.
     def run_plugins_by_plan
+      prepare_checkin
       plan do |plugin|
-        prepare_checkin
         process_plugin(plugin)
-        checkin
       end
+      checkin
     end
     
     # 
