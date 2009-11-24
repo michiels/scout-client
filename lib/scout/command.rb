@@ -9,7 +9,7 @@ module Scout
     def self.user
       @user ||= ENV["USER"] || ENV["USERNAME"] || "root"
     end
-    
+
     def self.program_name
       @program_name ||= File.basename($PROGRAM_NAME)
     end
@@ -17,7 +17,7 @@ module Scout
     def self.program_path
       @program_path ||= File.expand_path($PROGRAM_NAME)
     end
-    
+
     def self.usage
       @usage
     end
@@ -89,11 +89,15 @@ module Scout
                  "Turn on logging to STDOUT" ) do |bool|
           options[:verbose] = bool
         end
-        
+
         opts.on( "-V", "--version",
                  "Display the current version") do |version|
           puts Scout::VERSION
           exit
+        end
+
+        opts.on( "-F", "--force", "Force checkin to Scout server regardless of last checkin time") do |bool|
+          options[:force] = bool
         end
 
         begin
@@ -104,16 +108,15 @@ module Scout
           exit
         end
       end
-      
+
       options
     end
     private_class_method :parse_options
-    
+
     def self.dispatch(argv)
       options = parse_options(argv)
       command = if name_or_key = argv.shift
-                  if cls = Scout::Command.const_get(name_or_key.capitalize) \
-                             rescue nil
+                  if cls = (Scout::Command.const_get(name_or_key.capitalize) rescue nil)
                     cls.new(options, argv)
                   else
                     Run.new(options, [name_or_key] + argv)
@@ -121,9 +124,10 @@ module Scout
                 else
                   Install.new(options, argv)
                 end
-      command.create_pid_file_or_exit.run
+
+      command.run
     end
-    
+
     def initialize(options, args)
       @server  = options[:server]  || "https://scoutapp.com/"
       @history = options[:history] ||
@@ -132,23 +136,24 @@ module Scout
                             "client_history.yaml" )
       @verbose = options[:verbose] || false
       @level   = options[:level]   || "info"
-      
+      @force   = options[:force]   || false
+
       @args    = args
     end
-    
+
     attr_reader :server, :history
-    
+
     def config_dir
       return @config_dir if defined? @config_dir
       @config_dir = File.dirname(history)
       FileUtils.mkdir_p(@config_dir) # ensure dir exists
       @config_dir
     end
-    
+
     def verbose?
       @verbose
     end
-    
+
     def log
       return @log if defined? @log
       @log = if verbose?
@@ -160,15 +165,15 @@ module Scout
                nil
              end
     end
-    
+
     def level
       Logger.const_get(@level.upcase) rescue Logger::INFO
     end
-    
+
     def user
       @user ||= Command.user
     end
-    
+
     def program_name
       @program_name ||= Command.program_name
     end
@@ -176,11 +181,11 @@ module Scout
     def program_path
       @program_path ||= Command.program_path
     end
-    
+
     def usage
       @usage ||= Command.usage
     end
-    
+
     def create_pid_file_or_exit
       pid_file = File.join(config_dir, "scout_client_pid.txt")
       begin
@@ -228,7 +233,7 @@ module Scout
           retry
         end
       end
-      
+
       self
     end
   end

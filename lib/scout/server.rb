@@ -34,7 +34,9 @@ module Scout
     # We consider the interval close enough at this point.
     # 
     RUN_DELTA = 30
-    
+
+    attr_reader :checkin_now
+
     # Creates a new Scout Server connection.
     def initialize(server, client_key, history_file, logger = nil)
       @server       = server
@@ -42,55 +44,73 @@ module Scout
       @history_file = history_file
       @history      = Hash.new
       @logger       = logger
-      
+      @plugin_plan=[]
+      @checkin_now  = false
+
+      # the block isn't passed anymore, since we split plan retrieval outside the lockfile
       if block_given?
         load_history
         yield self
         save_history
       end
     end
-    
-    # Prepares a check-in data structure to hold Plugin generated data.
-    def prepare_checkin
-      @checkin = { :reports   => Array.new,
-                   :alerts    => Array.new,
-                   :errors    => Array.new,
-                   :summaries => Array.new }
-    end
-    
-    def show_checkin(printer = :p)
-      send(printer, @checkin)
-    end
-    
-    # 
-    # Loads the history file from disk. If the file does not exist, 
-    # it creates one.
+
     #
-    def load_history
-      unless File.exist? @history_file
-        debug "Creating empty history file..."
-        File.open(@history_file, "w") do |file|
-          YAML.dump({"last_runs" => Hash.new, "memory" => Hash.new}, file)
-        end
-        info "History file created."
+    # Retrieves the Plugin Plan from the server. This is the list of plugins
+    # to execute, along with all options.
+    #
+    # This method has a couple of side effects:
+    # 1) it sets the @plugin plan with either A) whatever is in history, B) the results of the /plan retrieval
+    # 2) it sets @checkin_to = true IF so directed by the scout server
+    def fetch_plan
+      url = urlify(:plan)
+      info "Loading plan from #{url}..."
+      headers = Hash.new
+      if @history["last_modified_for_plugins"] and @history["old_plugins"]
+        headers["If-Modified-Since"] = @history["last_modified_for_plugins"]
       end
-      debug "Loading history file..."
-      @history = File.open(@history_file) { |file| YAML.load(file) }
-      info "History file loaded."
+      get(url, "Could not retrieve plan from server.", headers) do |res|
+        @checkin_now = res['X-checkin-now'] == 'true'
+        if res.is_a? Net::HTTPNotModified
+          info "Plan not modified.  Reusing saved plan."
+          @plugin_plan = Array(@history["old_plugins"])
+        else
+          begin
+            body = res.body
+            if res["Content-Encoding"] == "gzip" and body and not body.empty?
+              body = Zlib::GzipReader.new(StringIO.new(body)).read
+            end
+
+            @plugin_plan = Array(JSON.parse(body)["plugins"])
+            if res["Last-Modified"]
+              @history["last_modified_for_plugins"] = res["last-modified"]
+              @history["old_plugins"]               = @plugin_plan
+            end
+            info "Plan loaded.  (#{@plugin_plan.size} plugins:  " +
+                 "#{@plugin_plan.map { |p| p['name'] }.join(', ')})"
+
+          rescue Exception
+            fatal "Plan from server was malformed."
+            exit
+          end
+        end
+      end
     end
-    
-    # Saves the history file to disk.
-    def save_history
-      debug "Saving history file..."
-      File.open(@history_file, "w") { |file| YAML.dump(@history, file) }
-      info "History file saved."
-    end
-    
-    # Runs all plugins from a given plan. Calls process_plugin on each plugin.
+
+    # Runs all plugins from the given plan. Calls process_plugin on each plugin.
+    # @plugin_execution_plan is populated by calling fetch_plan
     def run_plugins_by_plan
       prepare_checkin
-      plan do |plugin|
-        process_plugin(plugin)
+      @plugin_plan.each do |plugin|
+        begin
+          process_plugin(plugin)
+        rescue RuntimeError
+          @checkin[:errors] << build_report(
+            plugin_id['id'],
+            :subject => "Exception:  #{$!.message}.",
+            :body    => $!.backtrace
+          )
+        end
       end
       checkin
     end
@@ -191,55 +211,44 @@ module Scout
       end
       info "Plugin #{plugin['name']} processing complete."
     end
-    
-    # 
-    # Retrieves the Plugin Plan from the server. This is the list of plugins 
-    # to execute, along with all options.
-    # 
-    def plan
-      url = urlify(:plan)
-      info "Loading plan from #{url}..."
-      headers = Hash.new
-      if @history["last_modified_for_plugins"] and @history["old_plugins"]
-        headers["If-Modified-Since"] = @history["last_modified_for_plugins"]
-      end
-      get(url, "Could not retrieve plan from server.", headers) do |res|
-        if res.is_a? Net::HTTPNotModified
-          info "Plan not modified.  Reusing saved plan."
-          plugin_execution_plan = Array(@history["old_plugins"])
-        else
-          begin
-            body = res.body
-            if res["Content-Encoding"] == "gzip" and body and not body.empty?
-              body = Zlib::GzipReader.new(StringIO.new(body)).read
-            end
-            plugin_execution_plan = Array(JSON.parse(body)["plugins"])
-            if res["Last-Modified"]
-              @history["last_modified_for_plugins"] = res["last-modified"]
-              @history["old_plugins"]               = plugin_execution_plan
-            end
-            info "Plan loaded.  (#{plugin_execution_plan.size} plugins:  " +
-                 "#{plugin_execution_plan.map { |p| p['name'] }.join(', ')})"
-          rescue Exception
-            fatal "Plan from server was malformed."
-            exit
-          end
-        end
-        plugin_execution_plan.each do |plugin|
-          begin
-            yield plugin if block_given?
-          rescue RuntimeError
-            @checkin[:errors] << build_report(
-              plugin_id['id'],
-              :subject => "Exception:  #{$!.message}.",
-              :body    => $!.backtrace
-            )
-          end
-        end
-      end
+
+
+    # Prepares a check-in data structure to hold Plugin generated data.
+    def prepare_checkin
+      @checkin = { :reports   => Array.new,
+                   :alerts    => Array.new,
+                   :errors    => Array.new,
+                   :summaries => Array.new }
     end
-    alias_method :test, :plan
-    
+
+    def show_checkin(printer = :p)
+      send(printer, @checkin)
+    end
+
+    #
+    # Loads the history file from disk. If the file does not exist,
+    # it creates one.
+    #
+    def load_history
+      unless File.exist? @history_file
+        debug "Creating empty history file..."
+        File.open(@history_file, "w") do |file|
+          YAML.dump({"last_runs" => Hash.new, "memory" => Hash.new}, file)
+        end
+        info "History file created."
+      end
+      debug "Loading history file..."
+      @history = File.open(@history_file) { |file| YAML.load(file) }
+      info "History file loaded."
+    end
+
+    # Saves the history file to disk.
+    def save_history
+      debug "Saving history file..."
+      File.open(@history_file, "w") { |file| YAML.dump(@history, file) }
+      info "History file saved."
+    end
+
     private
     
     def build_report(plugin_id, fields)

@@ -6,6 +6,8 @@ module Scout
   class Command
     class Test < Command
       def run
+        create_pid_file_or_exit
+
         plugin, options = @args
         
         # read the plugin_code from the file specified

@@ -4,6 +4,8 @@ module Scout
   class Command
     class Install < Command
       def run
+        create_pid_file_or_exit
+
         abort usage unless $stdin.tty?
         
         puts <<-END_INTRO.gsub(/^ {8}/, "")
