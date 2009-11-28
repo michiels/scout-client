@@ -36,6 +36,8 @@ module Scout
     RUN_DELTA = 30
 
     attr_reader :checkin_now
+    attr_reader :history # New addition, only necessary because we access the history externally (in Run command) and act on it.
+    attr_reader :directives
 
     # Creates a new Scout Server connection.
     def initialize(server, client_key, history_file, logger = nil)
@@ -44,10 +46,11 @@ module Scout
       @history_file = history_file
       @history      = Hash.new
       @logger       = logger
-      @plugin_plan=[]
+      @plugin_plan  = []
+      @directives   = {} # take_snapshots
       @checkin_now  = false
 
-      # the block isn't passed anymore, since we split plan retrieval outside the lockfile
+      # the block is only passed for install and test, since we split plan retrieval outside the lockfile for run
       if block_given?
         load_history
         yield self
@@ -66,14 +69,15 @@ module Scout
       url = urlify(:plan)
       info "Loading plan from #{url}..."
       headers = Hash.new
-      if @history["last_modified_for_plugins"] and @history["old_plugins"]
-        headers["If-Modified-Since"] = @history["last_modified_for_plugins"]
+      if @history["plan_last_modified"] and @history["old_plugins"]
+        headers["If-Modified-Since"] = @history["plan_last_modified"]
       end
       get(url, "Could not retrieve plan from server.", headers) do |res|
         @checkin_now = res['X-checkin-now'] == 'true'
         if res.is_a? Net::HTTPNotModified
           info "Plan not modified.  Reusing saved plan."
           @plugin_plan = Array(@history["old_plugins"])
+          @directives = @history["directives"]
         else
           begin
             body = res.body
@@ -81,13 +85,16 @@ module Scout
               body = Zlib::GzipReader.new(StringIO.new(body)).read
             end
 
-            @plugin_plan = Array(JSON.parse(body)["plugins"])
+            body_as_hash = JSON.parse(body)
+            @plugin_plan = Array(body_as_hash["plugins"])
+            @directives = body_as_hash["directives"].is_a?(Hash) ? body_as_hash["directives"] : Hash.new
             if res["Last-Modified"]
-              @history["last_modified_for_plugins"] = res["last-modified"]
+              @history["plan_last_modified"] = res["last-modified"]
               @history["old_plugins"]               = @plugin_plan
             end
             info "Plan loaded.  (#{@plugin_plan.size} plugins:  " +
-                 "#{@plugin_plan.map { |p| p['name'] }.join(', ')})"
+                 "#{@plugin_plan.map { |p| p['name'] }.join(', ')})" +
+                 ". Directives: #{@directives.to_a.map{|a|  "#{a.first}:#{a.last}"}.join(", ")}"
 
           rescue Exception
             fatal "Plan from server was malformed."
@@ -112,6 +119,7 @@ module Scout
           )
         end
       end
+      take_snapshot if @directives['take_snapshots']
       checkin
     end
     
@@ -213,12 +221,21 @@ module Scout
     end
 
 
+    # captures a list of processes running at this moment
+    def take_snapshot
+      lines=`ps aux`.split("\n")[1..-1] # get rid of the header line
+      @checkin[:snapshot]=lines
+      rescue Exception
+        error "unable to capture processes on this server. #{$!.message}"
+    end
+
     # Prepares a check-in data structure to hold Plugin generated data.
     def prepare_checkin
       @checkin = { :reports   => Array.new,
                    :alerts    => Array.new,
                    :errors    => Array.new,
-                   :summaries => Array.new }
+                   :summaries => Array.new,
+                   :snapshot  => '' }
     end
 
     def show_checkin(printer = :p)
@@ -231,16 +248,21 @@ module Scout
     #
     def load_history
       unless File.exist? @history_file
-        debug "Creating empty history file..."
-        File.open(@history_file, "w") do |file|
-          YAML.dump({"last_runs" => Hash.new, "memory" => Hash.new}, file)
-        end
-        info "History file created."
+        create_blank_history
       end
       debug "Loading history file..."
       @history = File.open(@history_file) { |file| YAML.load(file) }
       info "History file loaded."
     end
+
+    # creates a blank history file
+    def create_blank_history
+      debug "Creating empty history file..."
+      File.open(@history_file, "w") do |file|
+        YAML.dump({"last_runs" => Hash.new, "memory" => Hash.new}, file)
+      end
+      info "History file created."      
+    end    
 
     # Saves the history file to disk.
     def save_history
