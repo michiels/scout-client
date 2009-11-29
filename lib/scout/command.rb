@@ -25,7 +25,7 @@ module Scout
     def self.parse_options(argv)
       options = { }
 
-      ARGV.options do |opts|
+      op = OptionParser.new do |opts|
         opts.banner = "Usage:"
 
         opts.separator "  Normal checkin with server:"
@@ -99,16 +99,15 @@ module Scout
         opts.on( "-F", "--force", "Force checkin to Scout server regardless of last checkin time") do |bool|
           options[:force] = bool
         end
-
-        begin
-          opts.parse!
-          @usage = opts.to_s
-        rescue
-          puts opts
-          exit
-        end
       end
 
+      begin
+        op.parse!(argv)
+        @usage = op.to_s
+      rescue
+        puts op
+        exit
+      end
       options
     end
     private_class_method :parse_options
@@ -124,7 +123,6 @@ module Scout
                 else
                   Install.new(options, argv)
                 end
-
       command.run
     end
 
