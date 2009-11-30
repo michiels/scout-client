@@ -18,12 +18,15 @@ module Scout
         end
         # END: Experimental -- may not keep this
 
-        if @scout.checkin_now  || @force 
+        if @scout.checkin_now  || @force
+          if log
+            log.info(@scout.checkin_now ? "It is time to checkin" : "overriding checkin time with --force and checking in now.")  
+          end
           create_pid_file_or_exit
           @scout.run_plugins_by_plan
           @scout.save_history
         else
-          log.info "Not time to checkin yet" if log
+          log.info "Not time to checkin yet. Override by passing --force to the scout command" if log
         end
       end
     end

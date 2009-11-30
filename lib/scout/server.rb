@@ -67,7 +67,7 @@ module Scout
     # 2) it sets @checkin_to = true IF so directed by the scout server
     def fetch_plan
       url = urlify(:plan)
-      info "Loading plan from #{url}..."
+      info "Pinging server at #{url}..."
       headers = Hash.new
       if @history["plan_last_modified"] and @history["old_plugins"]
         headers["If-Modified-Since"] = @history["plan_last_modified"]
@@ -75,10 +75,11 @@ module Scout
       get(url, "Could not retrieve plan from server.", headers) do |res|
         @checkin_now = res['X-checkin-now'] == 'true'
         if res.is_a? Net::HTTPNotModified
-          info "Plan not modified.  Reusing saved plan."
+          info "Plan not modified. Will reuse saved plan."
           @plugin_plan = Array(@history["old_plugins"])
-          @directives = @history["directives"]
+          @directives = @history["directives"] || Hash.new
         else
+          info "plan has been modified; running the new plan now."
           begin
             body = res.body
             if res["Content-Encoding"] == "gzip" and body and not body.empty?
@@ -90,7 +91,8 @@ module Scout
             @directives = body_as_hash["directives"].is_a?(Hash) ? body_as_hash["directives"] : Hash.new
             if res["Last-Modified"]
               @history["plan_last_modified"] = res["last-modified"]
-              @history["old_plugins"]               = @plugin_plan
+              @history["old_plugins"]        = @plugin_plan
+              @history["directives"]         = @directives
             end
             info "Plan loaded.  (#{@plugin_plan.size} plugins:  " +
                  "#{@plugin_plan.map { |p| p['name'] }.join(', ')})" +
