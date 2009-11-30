@@ -246,8 +246,8 @@ module Scout
     # captures a list of processes running at this moment
     def take_snapshot
       info "Taking a process snapshot"
-      lines=`ps aux`.split("\n")[1..-1] # get rid of the header line
-      @checkin[:snapshot]=lines
+      ps=`ps aux`.split("\n")[1..-1].join("\n") # get rid of the header line
+      @checkin[:snapshot]=ps
       rescue Exception
         error "unable to capture processes on this server. #{$!.message}"
     end
