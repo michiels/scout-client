@@ -35,8 +35,7 @@ module Scout
     # 
     RUN_DELTA = 30
 
-    attr_reader :checkin_now
-    attr_reader :history # New addition, only necessary because we access the history externally (in Run command) and act on it.
+    attr_reader :new_plan
     attr_reader :directives
 
     # Creates a new Scout Server connection.
@@ -48,7 +47,7 @@ module Scout
       @logger       = logger
       @plugin_plan  = []
       @directives   = {} # take_snapshots
-      @checkin_now  = false
+      @new_plan     = false
 
       # the block is only passed for install and test, since we split plan retrieval outside the lockfile for run
       if block_given?
@@ -73,13 +72,12 @@ module Scout
         headers["If-Modified-Since"] = @history["plan_last_modified"]
       end
       get(url, "Could not retrieve plan from server.", headers) do |res|
-        @checkin_now = res['X-checkin-now'] == 'true'
         if res.is_a? Net::HTTPNotModified
           info "Plan not modified. Will reuse saved plan."
           @plugin_plan = Array(@history["old_plugins"])
           @directives = @history["directives"] || Hash.new
         else
-          info "plan has been modified; running the new plan now."
+          info "plan has been modified. Will run the new plan now."
           begin
             body = res.body
             if res["Content-Encoding"] == "gzip" and body and not body.empty?
@@ -89,21 +87,43 @@ module Scout
             body_as_hash = JSON.parse(body)
             @plugin_plan = Array(body_as_hash["plugins"])
             @directives = body_as_hash["directives"].is_a?(Hash) ? body_as_hash["directives"] : Hash.new
-            if res["Last-Modified"]
-              @history["plan_last_modified"] = res["last-modified"]
-              @history["old_plugins"]        = @plugin_plan
-              @history["directives"]         = @directives
-            end
+            # TODO: I can't think of any reason this conditional is needed
+            #if res["Last-Modified"]
+            @history["plan_last_modified"] = res["last-modified"]
+            @history["old_plugins"]        = @plugin_plan
+            @history["directives"]         = @directives
+            #end
             info "Plan loaded.  (#{@plugin_plan.size} plugins:  " +
                  "#{@plugin_plan.map { |p| p['name'] }.join(', ')})" +
                  ". Directives: #{@directives.to_a.map{|a|  "#{a.first}:#{a.last}"}.join(", ")}"
 
+            @new_plan = true # used in determination if we should checkin this time or not
           rescue Exception
             fatal "Plan from server was malformed."
             exit
           end
         end
       end
+    end
+
+    # uses values from history and current time to determine if we should checkin at this time
+    def time_to_checkin?
+      @history['last_checkin'] == nil ||
+              @directives['interval'] == nil ||
+              (Time.now.to_i - Time.at(@history['last_checkin']).to_i).abs+15 > @directives['interval'].to_i*60
+    rescue
+      debug "Failed to calculate time_to_checkin. @history['last_checkin']=#{@history['last_checkin']}. "+
+              "@directives['interval']=#{@directives['interval']}. Time.now.to_i=#{Time.now.to_i}"
+      return true
+    end
+
+    def time_to_next_checkin
+      secs= @directives['interval'].to_i*60 - (Time.now.to_i - Time.at(@history['last_checkin']).to_i).abs
+      minutes=(secs.to_f/60).floor
+      secs=secs%60
+      "#{minutes}min #{secs} sec"
+    rescue
+      "[next scout invocation]"
     end
 
     # Runs all plugins from the given plan. Calls process_plugin on each plugin.
@@ -135,7 +155,7 @@ module Scout
     # set memory and last_run information in the history file.
     # 
     def process_plugin(plugin)
-      info "Processing the #{plugin['name']} plugin:"
+      info "Processing the '#{plugin['name']}' plugin:"
       id_and_name = "#{plugin['id']}-#{plugin['name']}".sub(/\A-/, "")
       last_run    = @history["last_runs"][id_and_name] ||
                     @history["last_runs"][plugin['name']]
@@ -219,12 +239,13 @@ module Scout
           error "Unable to remove plugin."
         end
       end
-      info "Plugin #{plugin['name']} processing complete."
+      info "Plugin '#{plugin['name']}' processing complete."
     end
 
 
     # captures a list of processes running at this moment
     def take_snapshot
+      info "Taking a process snapshot"
       lines=`ps aux`.split("\n")[1..-1] # get rid of the header line
       @checkin[:snapshot]=lines
       rescue Exception
@@ -339,6 +360,7 @@ module Scout
     end
     
     def checkin
+      @history['last_checkin'] = Time.now.to_i # might have to save the time of invocation and use here to prevent drift
       io   =  StringIO.new
       gzip =  Zlib::GzipWriter.new(io)
       gzip << @checkin.to_json

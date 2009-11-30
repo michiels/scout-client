@@ -14,19 +14,24 @@ module Scout
         # Potential problems: increases complexity, messes with the history file outside a lock.
         if @scout.directives['reset_history']
           File.delete(history)
-          @server.create_blank_history
+          @scout.create_blank_history
+          @scout.load_history
         end
         # END: Experimental -- may not keep this
 
-        if @scout.checkin_now  || @force
-          if log
-            log.info(@scout.checkin_now ? "It is time to checkin" : "overriding checkin time with --force and checking in now.")  
+        if @scout.new_plan || @scout.time_to_checkin?  || @force
+          if @scout.new_plan
+            log.info("Now checking in with new plugin plan") if log
+          elsif @scout.time_to_checkin?
+            log.info("It is time to checkin") if log
+          elsif @force
+            log.info("overriding checkin schedule with --force and checking in now.") if log
           end
           create_pid_file_or_exit
           @scout.run_plugins_by_plan
           @scout.save_history
         else
-          log.info "Not time to checkin yet. Override by passing --force to the scout command" if log
+          log.info "Not time to checkin yet. Next checkin in #{@scout.time_to_next_checkin}. Override by passing --force to the scout command" if log
         end
       end
     end
