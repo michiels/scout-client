@@ -57,12 +57,6 @@ module Scout
       end
     end
 
-    def run
-
-    end
-
-
-
     #
     # Retrieves the Plugin Plan from the server. This is the list of plugins
     # to execute, along with all options.
@@ -93,12 +87,11 @@ module Scout
             body_as_hash = JSON.parse(body)
             @plugin_plan = Array(body_as_hash["plugins"])
             @directives = body_as_hash["directives"].is_a?(Hash) ? body_as_hash["directives"] : Hash.new
-            # TODO: I can't think of any reason this conditional is needed
-            #if res["Last-Modified"]
+
             @history["plan_last_modified"] = res["last-modified"]
             @history["old_plugins"]        = @plugin_plan
             @history["directives"]         = @directives
-            #end
+
             info "Plan loaded.  (#{@plugin_plan.size} plugins:  " +
                  "#{@plugin_plan.map { |p| p['name'] }.join(', ')})" +
                  ". Directives: #{@directives.to_a.map{|a|  "#{a.first}:#{a.last}"}.join(", ")}"
@@ -120,6 +113,18 @@ module Scout
     rescue
       debug "Failed to calculate time_to_checkin. @history['last_checkin']=#{@history['last_checkin']}. "+
               "@directives['interval']=#{@directives['interval']}. Time.now.to_i=#{Time.now.to_i}"
+      return true
+    end
+
+    # uses values from history and current time to determine if we should ping the server at this time
+    def time_to_ping?
+      return true if
+      @history['last_ping'] == nil ||
+              @directives['ping_interval'] == nil ||
+              (Time.now.to_i - Time.at(@history['last_ping']).to_i).abs+15 > @directives['ping_interval'].to_i*60
+    rescue
+      debug "Failed to calculate time_to_ping. @history['last_ping']=#{@history['last_ping']}. "+
+              "@directives['ping_interval']=#{@directives['ping_interval']}. Time.now.to_i=#{Time.now.to_i}"
       return true
     end
 
