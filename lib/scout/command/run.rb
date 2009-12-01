@@ -31,7 +31,7 @@ module Scout
           @scout.run_plugins_by_plan
           @scout.save_history
         else
-          log.info "Not time to checkin yet. Next checkin in #{@scout.time_to_next_checkin}. Override by passing --force to the scout command" if log
+          log.info "Not time to checkin yet. Next checkin in #{@scout.next_checkin}. Override by passing --force to the scout command" if log
         end
       end
     end

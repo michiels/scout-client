@@ -57,6 +57,12 @@ module Scout
       end
     end
 
+    def run
+
+    end
+
+
+
     #
     # Retrieves the Plugin Plan from the server. This is the list of plugins
     # to execute, along with all options.
@@ -117,7 +123,8 @@ module Scout
       return true
     end
 
-    def time_to_next_checkin
+    # returns a human-readable representation of the next checkin, i.e., 5min 30sec
+    def next_checkin
       secs= @directives['interval'].to_i*60 - (Time.now.to_i - Time.at(@history['last_checkin']).to_i).abs
       minutes=(secs.to_f/60).floor
       secs=secs%60
@@ -246,10 +253,11 @@ module Scout
     # captures a list of processes running at this moment
     def take_snapshot
       info "Taking a process snapshot"
-      ps=`ps aux`.split("\n")[1..-1].join("\n") # get rid of the header line
+      ps=%x(ps aux).split("\n")[1..-1].join("\n") # get rid of the header line
       @checkin[:snapshot]=ps
       rescue Exception
         error "unable to capture processes on this server. #{$!.message}"
+        return nil
     end
 
     # Prepares a check-in data structure to hold Plugin generated data.
