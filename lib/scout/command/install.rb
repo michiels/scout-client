@@ -52,7 +52,7 @@ module Scout
           puts $!.message
           puts <<-END_ERROR.gsub(/^ {10}/, "")
 
-          Could not contact server. 
+          Failed. 
           For more help, please visit:
 
           http://scoutapp.com/help
