@@ -188,6 +188,7 @@ module Scout
         rescue Exception
           raise if $!.is_a? SystemExit
           error "Plugin would not compile: #{$!.message}"
+          @checkin[:errors] << build_report(plugin['id'],:subject => "Plugin would not compile", :body=>$!.message)
           return
         end
         debug "Loading plugin..."
@@ -209,6 +210,9 @@ module Scout
             raise if $!.is_a? SystemExit
             error "Plugin failed to run: #{$!.class}: #{$!.message}\n" +
                   "#{$!.backtrace.join("\n")}"
+            @checkin[:errors] << build_report(plugin['id'],
+                                              :subject => "Plugin failed to run",
+                                              :body=>"#{$!.class}: #{$!.message}\n#{$!.backtrace.join("\n")}")
           end
           info "Plugin completed its run."
           
@@ -230,7 +234,7 @@ module Scout
           @history["memory"][id_and_name]    = data[:memory]
         else
           @checkin[:errors] << build_report(
-            plugin_id['id'],
+            plugin['id'],
             :subject => "Plugin would not load."
           )
         end
