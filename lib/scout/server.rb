@@ -360,8 +360,9 @@ module Scout
       when Net::HTTPSuccess, Net::HTTPNotModified
         response_handler[response] unless response_handler.nil?
       else
+        error = "Server says: #{response['x-scout-msg']}" if response['x-scout-msg']
         fatal error
-        exit
+        raise SystemExit.new(error)
       end
     rescue Timeout::Error
       fatal "Request timed out."
