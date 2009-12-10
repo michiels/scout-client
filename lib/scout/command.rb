@@ -28,6 +28,7 @@ module Scout
       op = OptionParser.new do |opts|
         opts.banner = "Usage:"
 
+        opts.separator "--------------------------------------------------------------------------"
         opts.separator "  Normal checkin with server:"
         opts.separator "    #{program_name} [OPTIONS] CLIENT_KEY"
         opts.separator "    ... OR ..."
@@ -39,20 +40,18 @@ module Scout
         opts.separator "  Local plugin testing:"
         opts.separator "    #{program_name} [OPTIONS] test " +
                        "PATH_TO_PLUGIN [PLUGIN_OPTIONS]"
-        opts.separator "[PLUGIN_OPTIONS] format: opt1=val1 opt2=val2 opt2=val3 etc."
+        opts.separator "[PLUGIN_OPTIONS] format: opt1=val1 opt2=val2 opt2=val3 ..."
         opts.separator "Plugin will use internal defaults if options aren't provided."
         opts.separator " "
         opts.separator "Note: This client is meant to be installed and"
         opts.separator "invoked through cron or any other scheduler."
-        opts.separator ""
+        opts.separator " "
         opts.separator "Specific Options:"
-
+        opts.separator "--------------------------------------------------------------------------"
         opts.on( "-s", "--server SERVER", String,
                  "The URL for the server to report to." ) do |url|
           options[:server] = url
         end
-
-        opts.separator ""
 
         opts.on( "-d", "--data DATA", String,
                  "The data file used to track history." ) do |file|
@@ -64,8 +63,9 @@ module Scout
           options[:level] = level
         end
 
+        opts.separator " "
         opts.separator "Common Options:"
-
+        opts.separator "--------------------------------------------------------------------------"
         opts.on( "-h", "--help",
                  "Show this message." ) do
           puts opts
@@ -88,10 +88,11 @@ module Scout
 
         opts.separator " "
         opts.separator "Examples: "
-        opts.separator "1. Normal run (example key; use your own key):"
+        opts.separator "--------------------------------------------------------------------------"
+        opts.separator "1. Normal run (replace w/your own key):"
         opts.separator "     scout 6ecad322-0d17-4cb8-9b2c-a12c4541853f"
-        opts.separator "2. Normal run with logging to standard out (example key; use your own key):"
-        opts.separator "     scout  --verbose 6ecad322-0d17-4cb8-9b2c-a12c4541853f"
+        opts.separator "2. Normal run with logging to standard out (replace w/your own key):"
+        opts.separator "     scout --verbose 6ecad322-0d17-4cb8-9b2c-a12c4541853f"
         opts.separator "3. Test a plugin:"
         opts.separator "     scout test my_plugin.rb foo=18 bar=42"
 
