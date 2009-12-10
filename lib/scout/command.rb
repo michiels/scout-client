@@ -39,23 +39,9 @@ module Scout
         opts.separator "  Local plugin testing:"
         opts.separator "    #{program_name} [OPTIONS] test " +
                        "PATH_TO_PLUGIN [PLUGIN_OPTIONS]"
-        opts.separator "  Clone a client setup:"
-        opts.separator "    #{program_name} [OPTIONS] clone " +
-                       "CLIENT_KEY NEW_CLIENT_NAME"
-        opts.separator ""
-        opts.separator "CLIENT_KEY is the indentification key assigned to"
-        opts.separator "this client by the server."
-        opts.separator ""
-        opts.separator "PATH_TO_PLUGIN is the file system path to a Ruby file"
-        opts.separator "that contains a Scout plugin."
-        opts.separator ""
-        opts.separator "PLUGIN_OPTIONS can be the code for a Ruby Hash or the"
-        opts.separator "path to a YAML options file containing defaults.  These"
-        opts.separator "options will be used for the plugin run."
-        opts.separator ""
-        opts.separator "NEW_CLIENT_NAME is name you wish to use for the new"
-        opts.separator "client the server creates."
-        opts.separator ""
+        opts.separator "[PLUGIN_OPTIONS] format: opt1=val1 opt2=val2 opt2=val3 etc."
+        opts.separator "Plugin will use internal defaults if options aren't provided."
+        opts.separator " "
         opts.separator "Note: This client is meant to be installed and"
         opts.separator "invoked through cron or any other scheduler."
         opts.separator ""
@@ -74,7 +60,7 @@ module Scout
         end
         opts.on( "-l", "--level LEVEL",
                  Logger::SEV_LABEL.map { |l| l.downcase },
-                 "The level of logging to report." ) do |level|
+                 "The level of logging to report. Use -ldebug for most detail." ) do |level|
           options[:level] = level
         end
 
@@ -99,6 +85,16 @@ module Scout
         opts.on( "-F", "--force", "Force checkin to Scout server regardless of last checkin time") do |bool|
           options[:force] = bool
         end
+
+        opts.separator " "
+        opts.separator "Examples: "
+        opts.separator "1. Normal run (example key; use your own key):"
+        opts.separator "     scout 6ecad322-0d17-4cb8-9b2c-a12c4541853f"
+        opts.separator "2. Normal run with logging to standard out (example key; use your own key):"
+        opts.separator "     scout  --verbose 6ecad322-0d17-4cb8-9b2c-a12c4541853f"
+        opts.separator "3. Test a plugin:"
+        opts.separator "     scout test my_plugin.rb foo=18 bar=42"
+
       end
 
       begin
@@ -113,6 +109,8 @@ module Scout
     private_class_method :parse_options
 
     def self.dispatch(argv)
+      # capture help command
+      argv.push("--help") if argv.first == 'help'
       options = parse_options(argv)
       command = if name_or_key = argv.shift
                   if cls = (Scout::Command.const_get(name_or_key.capitalize) rescue nil)

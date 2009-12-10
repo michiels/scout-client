@@ -10,14 +10,6 @@ module Scout
         @scout.load_history
         @scout.fetch_plan
 
-        # BEGIN: Experimental -- may not keep this.
-        # Potential problems: increases complexity, messes with the history file outside a lock.
-        if @scout.directives['reset_history']
-          File.delete(history)
-          @scout.create_blank_history
-          @scout.load_history
-        end
-        # END: Experimental -- may not keep this
 
         if @scout.new_plan || @scout.time_to_checkin?  || @force
           if @scout.new_plan

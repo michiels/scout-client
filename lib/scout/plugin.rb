@@ -1,7 +1,12 @@
 #!/usr/bin/env ruby -wKU
 
+
 module Scout
+
   class Plugin
+
+    EMBEDDED_OPTIONS_REGEX = /OPTIONS ?= ?<<-?([A-Z_]+)(.*)\1/m
+
     class << self
       attr_accessor :last_defined
 
@@ -31,6 +36,18 @@ module Scout
         else
           needs.push(*libraries.flatten)
         end
+      end
+
+      # true if the code seems to have embedded options
+      def has_embedded_options?(code)
+        code =~ EMBEDDED_OPTIONS_REGEX
+      end
+
+      # extracts the internal YAML, if any, and returns the YAML string.
+      # returns nil if no embedded options.
+      def extract_options_yaml_from_code(code)
+        code =~ EMBEDDED_OPTIONS_REGEX
+        return $2
       end
     end
 
