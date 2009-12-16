@@ -145,12 +145,13 @@ module Scout
       @plugin_plan.each do |plugin|
         begin
           process_plugin(plugin)
-        rescue RuntimeError
+        rescue Exception
           @checkin[:errors] << build_report(
-            plugin_id['id'],
+            plugin['id'],
             :subject => "Exception:  #{$!.message}.",
             :body    => $!.backtrace
           )
+          error("Encountered an error: #{$!.message}")
         end
       end
       take_snapshot if @directives['take_snapshots']
@@ -203,8 +204,11 @@ module Scout
             Timeout.timeout(timeout, PluginTimeoutError) do
               data = job.run
             end
-          rescue Timeout::Error
+          rescue Timeout::Error, PluginTimeoutError
             error "Plugin took too long to run."
+            @checkin[:errors] << build_report(plugin['id'],
+                                              :subject => "Plugin took too long to run",
+                                              :body=>"Execution timed out.")
             return
           rescue Exception
             raise if $!.is_a? SystemExit
