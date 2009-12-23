@@ -6,32 +6,32 @@ Scout by Highgroove Studios
 
 The easier way to monitor servers and web applications.
 
-Scout makes monitoring and reporting on your web applications as flexible 
-and simple as possible.
+Scout makes monitoring and reporting on your web applications
+as flexible and simple as possible.
 
-Scout is a product of Highgroove Studios.  Please visit http://scoutapp.com 
-for more information.
+Scout is a product of Highgroove Studios.
+Please visit http://scoutapp.com for more information.
 
 == Installing
 
-After installing the scout gem:
+Install the Scout gem:
 
   $ sudo gem install scout
 
-Simply run:
+Then simply run:
 
   $ scout
 
-to run the installation wizard.  You'll need your Client Key to continue.
+to run the installation wizard.  You'll need your server key to continue. Get the server key from your account at http://scoutapp.com
 
 == Running the Scout Client
 
 The Scout client has several modes of operation and commands.  The normal, intended usage is through a scheduled interval with no output.
 
 Normal checkin with server:
-  $ scout [OPTIONS] CLIENT_KEY
+  $ scout [OPTIONS] SERVER_KEY
   ... OR ...
-  $ scout [OPTIONS] run CLIENT_KEY
+  $ scout [OPTIONS] run SERVER_KEY
 
 Install:
   $ scout
@@ -41,36 +41,26 @@ Install:
 Local plugin testing:
   $ scout [OPTIONS] test PATH_TO_PLUGIN [PLUGIN_OPTIONS]
 
-Clone a client setup:
-  $ scout [OPTIONS] clone CLIENT_KEY NEW_CLIENT_NAME
 
-CLIENT_KEY is the indentification key assigned to
-this client by the server.
+SERVER_KEY is the identification key assigned by your account at http://scoutapp.com
 
 PATH_TO_PLUGIN is the file system path to a Ruby file
 that contains a Scout plugin.
 
-PLUGIN_OPTIONS can be the code for a Ruby Hash or the
-path to a YAML options file containing defaults.  These
-options will be used for the plugin run.
-
-NEW_CLIENT_NAME is name you wish to use for the new
-client the server creates.
+PLUGIN_OPTIONS are one or more options in the form:
+key1=val1 key2=val2
+These options will be used for the plugin run.
 
 
-== Cloning a Client
+== Setting up in cron
 
-The Scout gem can clone an existing client to automate the process of setting up additional clients.
+Configure Scout to run every minute. Typically, this will look like:
 
-An example usage, running:
+  * * * * *  deploy /usr/bin/scout SERVER_KEY
 
- server1 $ scout clone CLIENT_KEY 'My New Client'
+It's often helpful to log the output to a file. To do so:
 
-Will create a new client called 'My New Client' on the Scout server with the same plugins as an already existing client (with the CLIENT_KEY specified).  It will also return the new system crontab line:
-
-  */30 * * * *  deploy /usr/bin/scout NEW_CLIENT_KEY
-
-
+  * * * * *  deploy /usr/bin/scout SERVER_KEY > /path/to/anywhere/scout.out 2>&1
 
 
 For additional help, please visit http://scoutapp.com
