@@ -1,3 +1,25 @@
+== 5.0.3
+
+* fixed regression: Error when running `scout AGENT_KEY` without first running scout and manually entering the agent key 
+
+== 5.0.2
+
+* fixed silent failure when plugin didn't inherit from Scout::Plugin
+* beefed up error reporting
+
+== 5.0.1
+
+* plugin errors are now reported to scout server as errors, for easier plugin troubleshooting
+
+== 5.0.0
+
+* crontab must now run Scout every minute, regardless of what plan you are on
+* Support for server downtime notifications
+* Pings server every minute. Performs actual checkin on schedule provided by server
+* Support for plugin option definition via an inline YAML file.
+* Easier format for providing plugin arguments in test mode (scout help for details)
+* Prints plugin arguments, including defaults, when run in test mode
+
 == 4.0.2
 
 * Check-in once after all plugins are run instead of once for each plugin for
