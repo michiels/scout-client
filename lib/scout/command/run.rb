@@ -5,11 +5,13 @@ module Scout
     class Run < Command
       def run
         key = @args.first
-        # too much external logic of command doing things to server ... should be moved into server class
+        # TODO: this is an awkward way to force creation of the config directory. Could use a little refactoring.
+        configuration_directory = config_dir
+        log.debug("Configuration directory is #{configuration_directory} ") if log
+        # TODO: too much external logic of command doing things TO server. This should be moved into the server class.
         @scout = Scout::Server.new(server, key, history, log)
         @scout.load_history
         @scout.fetch_plan
-
 
         if @scout.new_plan || @scout.time_to_checkin?  || @force
           if @scout.new_plan
